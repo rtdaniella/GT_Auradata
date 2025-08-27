@@ -13,12 +13,13 @@ st.set_page_config(page_title="Dashboard admin/RH", layout="wide")
 def show_dashboard():
 
     # Droits d'accès
-    if "role" not in st.session_state or st.session_state["role"] != "admin":
-        st.error("Accès réservé à l'administrateur.")
+    # Vérification des droits d'accès
+    if "user_id" not in st.session_state or "role" not in st.session_state:
+        st.error("Vous devez être connecté pour accéder au tableau de bord.")
         st.stop()
 
-    if "user_id" not in st.session_state:
-        st.error("Vous devez être connecté pour accéder au tableau de bord.")
+    if st.session_state["role"] != "admin":
+        st.error("Accès réservé à l'administrateur.")
         st.stop()
 
     user_id = st.session_state["user_id"]
@@ -29,12 +30,21 @@ def show_dashboard():
         </div>
     """, unsafe_allow_html=True)
 
+    # Connexion à la base
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT name FROM users WHERE id = %s", (user_id,))
-    row = cursor.fetchone()
-    user_name = row[0] if row else "Utilisateur"
+    try:
+        cursor.execute("SELECT name FROM users WHERE id = %s", (user_id,))
+        row = cursor.fetchone()
+        if row is None:
+            st.error("Utilisateur introuvable dans la base.")
+            st.stop()
+        user_name = row[0]
+    except Exception as e:
+        st.error(f"Erreur lors de la récupération de l'utilisateur : {e}")
+        st.stop()
+
 
     st.markdown("""
         <style>
