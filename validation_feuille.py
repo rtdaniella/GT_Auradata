@@ -191,7 +191,8 @@ def show_validation_feuille():
         WHERE fts.statut = 'en attente'
         ORDER BY fts.annee DESC, fts.mois DESC
     """
-    feuilles = cur.execute(query).fetchall()
+    cur.execute(query)
+    feuilles = cur.fetchall()
 
     tab1, tab2, tab3 = st.tabs(["Feuilles en attente", "Validation heures", "Historique"])
 
@@ -332,10 +333,19 @@ def show_validation_feuille():
                     mois_nom = calendar.month_name[mois]
 
                     query_data = """
-                        SELECT date, valeur FROM feuille_temps
-                        WHERE user_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ?
+                        SELECT date, valeur 
+                        FROM feuille_temps
+                        WHERE user_id = %s 
+                        AND EXTRACT(MONTH FROM date) = %s
+                        AND EXTRACT(YEAR FROM date) = %s
                     """
-                    df = pd.read_sql_query(query_data, conn, params=(user_id, f"{mois:02d}", str(annee)), parse_dates=["date"])
+                    df = pd.read_sql_query(
+                        query_data,
+                        conn,
+                        params=(user_id, mois, annee),
+                        parse_dates=["date"]
+                    )
+
                     df.set_index("date", inplace=True)
                     df.index = df.index.date
                     
@@ -378,21 +388,27 @@ def show_validation_feuille():
                     query_abs = """
                         SELECT date_debut, date_fin, type_absence
                         FROM absences
-                        WHERE user_id = ? AND statut = 'Approuvée'
+                        WHERE user_id = %s AND statut = 'Approuvée'
                         AND (
-                            (date_debut BETWEEN ? AND ?)
-                            OR (date_fin BETWEEN ? AND ?)
-                            OR (date_debut <= ? AND date_fin >= ?)
+                            (date_debut BETWEEN %s AND %s)
+                            OR (date_fin BETWEEN %s AND %s)
+                            OR (date_debut <= %s AND date_fin >= %s)
                         )
                     """
+
                     debut_periode = date(annee, mois, 1)
                     fin_periode = date(annee, mois, calendar.monthrange(annee, mois)[1])
-                    df_abs = pd.read_sql_query(query_abs, conn, params=(
-                        user_id,
-                        debut_periode.isoformat(), fin_periode.isoformat(),
-                        debut_periode.isoformat(), fin_periode.isoformat(),
-                        debut_periode.isoformat(), fin_periode.isoformat(),
-                    ))
+
+                    df_abs = pd.read_sql_query(
+                        query_abs, conn,
+                        params=(
+                            user_id,
+                            debut_periode, fin_periode,
+                            debut_periode, fin_periode,
+                            debut_periode, fin_periode,
+                        )
+                    )
+
 
                     abs_dict = {}
                     for _, row in df_abs.iterrows():
@@ -426,8 +442,9 @@ def show_validation_feuille():
                             cur.execute("""
                                 UPDATE feuille_temps_statut
                                 SET statut = 'validée'
-                                WHERE user_id = ? AND annee = ? AND mois = ?
+                                WHERE user_id = %s AND annee = %s AND mois = %s
                             """, (user_id, annee, mois))
+
                             conn.commit()
                             st.success(f"Feuille de temps de {nom} validée.")
                             st.rerun()
@@ -453,12 +470,13 @@ def show_validation_feuille():
                                 else:
                                     cur.execute("""
                                         UPDATE feuille_temps_statut
-                                        SET statut = 'rejetée', motif_refus = ?
-                                        WHERE user_id = ? AND annee = ? AND mois = ?
+                                        SET statut = 'rejetée', motif_refus = %s
+                                        WHERE user_id = %s AND annee = %s AND mois = %s
                                     """, (motif_refus.strip(), user_id, annee, mois))
+
                                     conn.commit()
 
-                                    cur.execute("SELECT email FROM users WHERE id = ?", (user_id,))
+                                    cur.execute("SELECT email FROM users WHERE id = %s", (user_id,))
                                     result = cur.fetchone()
                                     if result:
                                         destinataire_email = result[0]
@@ -497,9 +515,16 @@ def show_validation_feuille():
 
             query_data = """
                 SELECT date, valeur FROM feuille_temps
-                WHERE user_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ?
+                WHERE user_id = %s
+                AND EXTRACT(MONTH FROM date) = %s
+                AND EXTRACT(YEAR FROM date) = %s
             """
-            df = pd.read_sql_query(query_data, conn, params=(user_id, f"{mois:02d}", str(annee)), parse_dates=["date"])
+            df = pd.read_sql_query(
+                query_data, conn,
+                params=(user_id, mois, annee),
+                parse_dates=["date"]
+            )
+
             if df.empty:
                 return 0
             total_heures = 0
@@ -645,9 +670,12 @@ def show_validation_feuille():
             query_statut = """
                 SELECT statut
                 FROM feuille_temps_statut
-                WHERE user_id = ? AND annee = ? AND mois = ?
+                WHERE user_id = %s AND annee = %s AND mois = %s
             """
-            statut_df = pd.read_sql_query(query_statut, conn, params=(selected_user_id, selected_year, month_num))
+            statut_df = pd.read_sql_query(
+                query_statut, conn,
+                params=(selected_user_id, selected_year, month_num)
+            )
             conn.close()
 
             if statut_df.empty or statut_df.iloc[0]['statut'] != 'validée':
@@ -657,11 +685,14 @@ def show_validation_feuille():
                 try:
                     conn = get_connection()
                     query_jours = """
-                        SELECT date(date) AS date_jour, valeur, statut_jour
+                        SELECT date AS date_jour, valeur, statut_jour
                         FROM feuille_temps
-                        WHERE user_id = ? AND date BETWEEN ? AND ?
+                        WHERE user_id = %s AND date BETWEEN %s AND %s
                     """
-                    df_feuille = pd.read_sql_query(query_jours, conn, params=(selected_user_id, date_start.strftime('%Y-%m-%d'), date_end.strftime('%Y-%m-%d')))
+                    df_feuille = pd.read_sql_query(
+                        query_jours, conn,
+                        params=(selected_user_id, date_start.strftime('%Y-%m-%d'), date_end.strftime('%Y-%m-%d'))
+                    )
                     conn.close()
                 except Exception as e:
                     st.error(f"Erreur lors du chargement de la feuille validée : {e}")
@@ -689,9 +720,13 @@ def show_validation_feuille():
             query_heures = """
                 SELECT projet_id, date_jour, heures
                 FROM heures_saisie
-                WHERE user_id = ? AND date_jour BETWEEN ? AND ?
+                WHERE user_id = %s AND date_jour BETWEEN %s AND %s
             """
-            df_heures = pd.read_sql_query(query_heures, conn, params=(selected_user_id, start_week_date.strftime('%Y-%m-%d'), end_week_date.strftime('%Y-%m-%d')))
+            df_heures = pd.read_sql_query(
+                query_heures, conn,
+                params=(selected_user_id, start_week_date.strftime('%Y-%m-%d'), end_week_date.strftime('%Y-%m-%d'))
+            )
+
             conn.close()
         except Exception as e:
             st.error(f"Erreur lors du chargement des heures saisies : {e}")
@@ -716,10 +751,11 @@ def show_validation_feuille():
                 SELECT p.id, p.nom AS Projet
                 FROM projets p
                 INNER JOIN attribution_projet ap ON ap.projet_id = p.id
-                WHERE ap.user_id = ?
+                WHERE ap.user_id = %s
                 ORDER BY p.nom
             """
             df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(selected_user_id,))
+
             conn.close()
         except Exception as e:
             st.error(f"Erreur lors du chargement des projets : {e}")
@@ -731,8 +767,8 @@ def show_validation_feuille():
             query_abs_user = """
                 SELECT date_debut, date_fin, type_absence
                 FROM absences
-                WHERE user_id = ? AND statut = 'Approuvée' 
-                AND date_fin >= ? AND date_debut <= ?
+                WHERE user_id = %s AND statut = 'Approuvée'
+                AND date_fin >= %s AND date_debut <= %s
             """
             df_abs_user = pd.read_sql_query(
                 query_abs_user, conn,
@@ -927,9 +963,10 @@ def show_validation_feuille():
                                     heures = row[jour] if row[jour] else 0.0
                                 cur.execute("""
                                     INSERT INTO heures_saisie (user_id, projet_id, date_jour, heures)
-                                    VALUES (?, ?, ?, ?)
-                                    ON CONFLICT(user_id, projet_id, date_jour) DO UPDATE SET heures=excluded.heures
+                                    VALUES (%s, %s, %s, %s)
+                                    ON CONFLICT (user_id, projet_id, date_jour) DO UPDATE SET heures = EXCLUDED.heures
                                 """, (selected_user_id, projet_id, jour, float(heures)))
+
                         conn.commit()
                         conn.close()
                         st.success("Heures enregistrées avec succès.")

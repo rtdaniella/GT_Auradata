@@ -226,11 +226,11 @@ def show_feuille_temps():
             df_abs = pd.read_sql_query("""
                 SELECT date_debut, date_fin, type_absence
                 FROM absences
-                WHERE user_id = ? AND statut = 'Approuvée'
+                WHERE user_id = %s AND statut = 'Approuvée'
                 AND (
-                    (date_debut BETWEEN ? AND ?)
-                    OR (date_fin BETWEEN ? AND ?)
-                    OR (date_debut <= ? AND date_fin >= ?)
+                    (date_debut BETWEEN %s AND %s)
+                    OR (date_fin BETWEEN %s AND %s)
+                    OR (date_debut <= %s AND date_fin >= %s)
                 )
             """, conn, params=(user_id, debut_periode, fin_periode,
                             debut_periode, fin_periode, debut_periode, fin_periode))
@@ -246,7 +246,8 @@ def show_feuille_temps():
                 "Maladie": "🤒",
                 "Congé payé": "🏖️",
                 "RTT": "🕶️",
-                "Télétravail": "💻"
+                "Télétravail": "💻",
+                "Congé sans soldes": "🏖️",
             }
 
             feries = holidays.CountryHoliday('FR', years=[annee])
@@ -256,8 +257,11 @@ def show_feuille_temps():
 
             df_feuille = pd.read_sql_query("""
                 SELECT date, valeur FROM feuille_temps
-                WHERE user_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ?
-            """, conn, params=(user_id, mois_str, annee_str), parse_dates=["date"])
+                WHERE user_id = %s 
+                AND EXTRACT(MONTH FROM date) = %s
+                AND EXTRACT(YEAR FROM date) = %s
+            """, conn, params=(user_id, int(mois_str), int(annee_str)), parse_dates=["date"])
+
             df_feuille.set_index("date", inplace=True)
 
         with col_statut:
@@ -266,7 +270,7 @@ def show_feuille_temps():
             cur = conn.cursor()
             cur.execute("""
                 SELECT statut FROM feuille_temps_statut
-                WHERE user_id = ? AND annee = ? AND mois = ?
+                WHERE user_id = %s AND annee = %s AND mois = %s
             """, (user_id, annee, mois))
             row_statut = cur.fetchone()
             if row_statut:
@@ -275,7 +279,7 @@ def show_feuille_temps():
                 statut_feuille = 'brouillon'
                 cur.execute("""
                     INSERT INTO feuille_temps_statut (user_id, annee, mois, statut)
-                    VALUES (?, ?, ?, 'brouillon')
+                    VALUES (%s, %s, %s, 'brouillon')
                 """, (user_id, annee, mois))
                 conn.commit()
 
@@ -509,15 +513,17 @@ def show_feuille_temps():
                             continue
                         cursor.execute("""
                             INSERT INTO feuille_temps (user_id, date, valeur, statut_jour)
-                            VALUES (?, ?, ?, 'travail')
-                            ON CONFLICT(user_id, date) DO UPDATE SET valeur=excluded.valeur
+                            VALUES (%s, %s, %s, 'travail')
+                            ON CONFLICT (user_id, date) DO UPDATE SET valeur = EXCLUDED.valeur
                         """, (user_id, jour.isoformat(), val))
+
                     if statut_feuille == 'rejetée':
                         cursor.execute("""
                             UPDATE feuille_temps_statut
                             SET statut = 'brouillon'
-                            WHERE user_id = ? AND annee = ? AND mois = ?
+                            WHERE user_id = %s AND annee = %s AND mois = %s
                         """, (user_id, annee, mois))
+
                     conn.commit()
                     st.success("Feuille enregistrée.")
                     st.session_state["mode_modification"] = False
@@ -534,7 +540,7 @@ def show_feuille_temps():
                         cur.execute("""
                             UPDATE feuille_temps_statut
                             SET statut = 'en attente'
-                            WHERE user_id = ? AND annee = ? AND mois = ?
+                            WHERE user_id = %s AND annee = %s AND mois = %s
                         """, (user_id, annee, mois))
                         conn.commit()
                         st.success("Feuille soumise.")
@@ -649,11 +655,13 @@ def show_feuille_temps():
             historique_query = """
                 SELECT fts.annee, fts.mois, fts.statut
                 FROM feuille_temps_statut fts
-                WHERE fts.user_id = ?
+                WHERE fts.user_id = %s
                 AND fts.statut IN ('validée', 'rejetée', 'en attente')
                 ORDER BY fts.annee DESC, fts.mois DESC
             """
+
             historique_df = pd.read_sql_query(historique_query, conn, params=(user_id,))
+
             
             if historique_df.empty:
                 st.info("Aucun historique disponible pour le moment.")
@@ -665,9 +673,12 @@ def show_feuille_temps():
 
                 query_data = """
                     SELECT date, valeur FROM feuille_temps
-                    WHERE user_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ?
+                    WHERE user_id = %s
+                    AND EXTRACT(MONTH FROM date) = %s
+                    AND EXTRACT(YEAR FROM date) = %s
                 """
-                df = pd.read_sql_query(query_data, conn, params=(user_id, f"{mois:02d}", str(annee)), parse_dates=["date"])
+                df = pd.read_sql_query(query_data, conn, params=(user_id, mois, annee), parse_dates=["date"])
+
                 if df.empty:
                     return 0
                 total_heures = 0
@@ -758,7 +769,7 @@ def show_feuille_temps():
             refus_query = """
                 SELECT annee, mois, motif_refus
                 FROM feuille_temps_statut
-                WHERE user_id = ? AND statut = 'rejetée'
+                WHERE user_id = %s AND statut = 'rejetée'
                 ORDER BY annee DESC, mois DESC
             """
             refus_df = pd.read_sql_query(refus_query, conn, params=(user_id,))
@@ -807,10 +818,11 @@ def show_feuille_temps():
                     SELECT p.id, p.nom AS Projet, p.outil AS Outil
                     FROM projets p
                     INNER JOIN attribution_projet ap ON ap.projet_id = p.id
-                    WHERE ap.user_id = ?
+                    WHERE ap.user_id = %s
                     ORDER BY p.nom
                 """
                 df_projets_user = pd.read_sql_query(query, conn, params=(user_id,))
+
                 conn.close()
 
                 if df_projets_user.empty:
@@ -901,19 +913,25 @@ def show_feuille_temps():
             query_statut = """
                 SELECT statut
                 FROM feuille_temps_statut
-                WHERE user_id = ? AND annee = ? AND mois = ?
+                WHERE user_id = %s AND annee = %s AND mois = %s
             """
             statut_df = pd.read_sql_query(query_statut, conn, params=(user_id, selected_year, month_num))
+
             if statut_df.empty or statut_df.iloc[0]['statut'] != 'validée':
                 st.info("La feuille de temps de ce mois n'est pas validée.")
                 df_feuille = pd.DataFrame()
             else:
                 query_jours = """
-                    SELECT date(date) AS date_jour, valeur, statut_jour
+                    SELECT date AS date_jour, valeur, statut_jour
                     FROM feuille_temps
-                    WHERE user_id = ? AND date BETWEEN ? AND ?
+                    WHERE user_id = %s AND date BETWEEN %s AND %s
                 """
-                df_feuille = pd.read_sql_query(query_jours, conn, params=(user_id, date_start.strftime('%Y-%m-%d'), date_end.strftime('%Y-%m-%d')))
+                df_feuille = pd.read_sql_query(
+                    query_jours, 
+                    conn, 
+                    params=(user_id, date_start.strftime('%Y-%m-%d'), date_end.strftime('%Y-%m-%d'))
+                )
+
             conn.close()
         except Exception as e:
             st.error(f"Erreur lors du chargement de la feuille validée : {e}")
@@ -942,9 +960,14 @@ def show_feuille_temps():
             query_heures = """
                 SELECT projet_id, date_jour, heures
                 FROM heures_saisie
-                WHERE user_id = ? AND date_jour BETWEEN ? AND ?
+                WHERE user_id = %s AND date_jour BETWEEN %s AND %s
             """
-            df_heures = pd.read_sql_query(query_heures, conn, params=(user_id, start_week_date.strftime('%Y-%m-%d'), end_week_date.strftime('%Y-%m-%d')))
+            df_heures = pd.read_sql_query(
+                query_heures, 
+                conn, 
+                params=(user_id, start_week_date.strftime('%Y-%m-%d'), end_week_date.strftime('%Y-%m-%d'))
+            )
+
             conn.close()
         except Exception as e:
             st.error(f"Erreur lors du chargement des heures saisies : {e}")
@@ -965,10 +988,11 @@ def show_feuille_temps():
                 SELECT p.id, p.nom AS Projet
                 FROM projets p
                 INNER JOIN attribution_projet ap ON ap.projet_id = p.id
-                WHERE ap.user_id = ?
+                WHERE ap.user_id = %s
                 ORDER BY p.nom
             """
             df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(user_id,))
+
             conn.close()
         except Exception as e:
             st.error(f"Erreur lors du chargement des projets : {e}")
@@ -980,13 +1004,14 @@ def show_feuille_temps():
             query_abs_user = """
                 SELECT date_debut, date_fin, type_absence
                 FROM absences
-                WHERE user_id = ?
+                WHERE user_id = %s
                 AND statut = 'Approuvée'
-                AND date_fin >= ?
-                AND date_debut <= ?
+                AND date_fin >= %s
+                AND date_debut <= %s
             """
             df_abs_user = pd.read_sql_query(
-                query_abs_user, conn,
+                query_abs_user,
+                conn,
                 params=(user_id, start_week_date.strftime('%Y-%m-%d'), end_week_date.strftime('%Y-%m-%d'))
             )
             conn.close()
@@ -1023,7 +1048,7 @@ def show_feuille_temps():
         # Construction des lignes projets
         data = []
         for _, proj in df_projets_user.iterrows():
-            row = {"projet_id": proj["id"], "Projet": proj["Projet"]}
+            row = {"projet_id": proj["id"], "Projet": proj["projet"]}
             for jour in jours_sem:
                 mask = (df_heures['projet_id'] == proj['id']) & (df_heures['date_jour'] == jour)
                 row[jour] = float(df_heures[mask]['heures'].values[0]) if not df_heures[mask].empty else 0.0
@@ -1102,7 +1127,7 @@ def show_feuille_temps():
         for jour in jours_sem:
             val_jour = df_feuille[df_feuille['date_jour'] == jour]['valeur']
             stat_jour = df_feuille[df_feuille['date_jour'] == jour]['statut_jour']
-            if val_jour.empty or val_jour.values[0] == 0 or (not stat_jour.empty and stat_jour.values[0] in ['congé', 'maladie', 'RTT']) or (jour in weekend_days) or (jour in abs_dates) or (jour in jours_feries_set):
+            if val_jour.empty or val_jour.values[0] == 0 or (not stat_jour.empty and stat_jour.values[0] in ['congé', 'maladie', 'RTT', 'congé sans solde']) or (jour in weekend_days) or (jour in abs_dates) or (jour in jours_feries_set):
                 gb.configure_column(
                     jour,
                     editable=False,
@@ -1173,12 +1198,13 @@ def show_feuille_temps():
 
                                 if (jour in weekend_days) or (jour in abs_dates) or (jour in jours_feries_set):
                                     heures = 0.0
-
                                 cur.execute("""
                                     INSERT INTO heures_saisie (user_id, projet_id, date_jour, heures)
-                                    VALUES (?, ?, ?, ?)
-                                    ON CONFLICT(user_id, projet_id, date_jour) DO UPDATE SET heures=excluded.heures
+                                    VALUES (%s, %s, %s, %s)
+                                    ON CONFLICT (user_id, projet_id, date_jour) 
+                                    DO UPDATE SET heures = EXCLUDED.heures
                                 """, (user_id, projet_id, jour, heures))
+
                         conn.commit()
                         conn.close()
                         st.success("Heures enregistrées avec succès.")
@@ -1224,26 +1250,30 @@ def show_feuille_temps():
                 SELECT p.nom AS Projet, SUM(hs.heures) AS Total_heures
                 FROM heures_saisie hs
                 INNER JOIN projets p ON p.id = hs.projet_id
-                WHERE hs.user_id = ? AND hs.date_jour BETWEEN ? AND ?
+                WHERE hs.user_id = %s AND hs.date_jour BETWEEN %s AND %s
                 GROUP BY p.nom
                 ORDER BY Total_heures DESC
             """
-            df_heures_mois = pd.read_sql_query(query_heures_mois, conn, params=(user_id, date_start.strftime('%Y-%m-%d'), date_end.strftime('%Y-%m-%d')))
+            df_heures_mois = pd.read_sql_query(
+                query_heures_mois, 
+                conn, 
+                params=(user_id, date_start.strftime('%Y-%m-%d'), date_end.strftime('%Y-%m-%d'))
+            )
             conn.close()
 
             if not df_heures_mois.empty:
                 fig = px.bar(
                     df_heures_mois,
-                    x='Projet',
-                    y='Total_heures',
-                    color='Projet', 
-                    labels={'Total_heures': 'Heures totales', 'Projet': 'Projet'},
-                    text='Total_heures'
+                    x='projet',
+                    y='total_heures',
+                    color='projet', 
+                    labels={'total_heures': 'Heures totales', 'projet': 'Projet'},
+                    text='total_heures'
                 )
                 fig.update_traces(texttemplate='%{text:.1f}', textposition='outside')
                 fig.update_layout(
                     yaxis=dict(
-                        range=[0, df_heures_mois['Total_heures'].max() * 1.1],
+                        range=[0, df_heures_mois['total_heures'].max() * 1.1],
                         title='Total heures',  
                         showgrid=True,         
                         gridcolor='LightGray', 

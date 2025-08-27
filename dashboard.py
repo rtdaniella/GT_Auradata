@@ -32,7 +32,7 @@ def show_dashboard():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT name FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT name FROM users WHERE id = %s", (user_id,))
     row = cursor.fetchone()
     user_name = row[0] if row else "Utilisateur"
 
@@ -210,18 +210,19 @@ def show_dashboard():
             SELECT u.name, ft.valeur
             FROM feuille_temps ft
             JOIN users u ON u.id = ft.user_id
-            WHERE strftime('%Y', ft.date) = ?
-            AND strftime('%m', ft.date) = ?
+            WHERE EXTRACT(YEAR FROM ft.date) = %s
+            AND EXTRACT(MONTH FROM ft.date) = %s
         """
-        params = [selected_year, f"{month_number:02d}"]
+        params = [selected_year, month_number] 
 
         if selected_employee != "Tous":
-            query += " AND u.name = ?"
+            query += " AND u.name = %s"
             params.append(selected_employee)
 
         if selected_role != "Tous":
-            query += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+            query += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
             params.append(selected_role)
+
 
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
@@ -242,24 +243,26 @@ def show_dashboard():
                 COUNT(*) as Jours
             FROM feuille_temps ft
             JOIN users u ON u.id = ft.user_id
-            WHERE strftime('%Y', ft.date) = ?
-            AND strftime('%m', ft.date) = ?
+            WHERE EXTRACT(YEAR FROM ft.date) = %s
+            AND EXTRACT(MONTH FROM ft.date) = %s
             AND ft.statut_jour = 'travail'
         """
-        params_ft = [selected_year, f"{month_number:02d}"]
+        params_ft = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
 
         if selected_employee != "Tous":
-            query_ft += " AND u.name = ?"
+            query_ft += " AND u.name = %s"
             params_ft.append(selected_employee)
 
         if selected_role != "Tous":
-            query_ft += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+            query_ft += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
             params_ft.append(selected_role)
 
         query_ft += " GROUP BY u.id, u.name"
+
         cursor.execute(query_ft, tuple(params_ft))
         ft_rows = cursor.fetchall()
         df_ft = pd.DataFrame(ft_rows, columns=["user_id", "Utilisateur", "Statut", "Jours"])
+
 
         # --- Absences et télétravail ---
         query_abs = """
@@ -269,21 +272,22 @@ def show_dashboard():
                 a.date_fin
             FROM absences a
             JOIN users u ON u.id = a.user_id
-            WHERE strftime('%Y', a.date_debut) = ?
-            AND strftime('%m', a.date_debut) = ?
+            WHERE EXTRACT(YEAR FROM a.date_debut) = %s
+            AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params_abs = [selected_year, f"{month_number:02d}"]
+        params_abs = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
 
         if selected_employee != "Tous":
-            query_abs += " AND u.name = ?"
+            query_abs += " AND u.name = %s"
             params_abs.append(selected_employee)
 
         if selected_role != "Tous":
-            query_abs += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+            query_abs += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
             params_abs.append(selected_role)
 
         cursor.execute(query_abs, tuple(params_abs))
         abs_rows = cursor.fetchall()
+
 
         abs_rows_expanded = []
         for user_id, user_name, statut, date_debut, date_fin in abs_rows:
@@ -304,17 +308,17 @@ def show_dashboard():
                 COUNT(*) as Jours
             FROM feuille_temps ft
             JOIN users u ON u.id = ft.user_id
-            WHERE strftime('%Y', ft.date) = ?
-            AND strftime('%m', ft.date) = ?
+            WHERE EXTRACT(YEAR FROM ft.date) = %s
+            AND EXTRACT(MONTH FROM ft.date) = %s
         """
-        params_ft_prev = [previous_year, f"{month_number:02d}"]
+        params_ft_prev = [previous_year, month_number]  # pas besoin de f"{month_number:02d}"
 
         if selected_employee != "Tous":
-            query_ft_prev += " AND u.name = ?"
+            query_ft_prev += " AND u.name = %s"
             params_ft_prev.append(selected_employee)
 
         if selected_role != "Tous":
-            query_ft_prev += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+            query_ft_prev += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
             params_ft_prev.append(selected_role)
 
         query_ft_prev += " GROUP BY u.id, u.name"
@@ -331,21 +335,22 @@ def show_dashboard():
                 a.date_fin
             FROM absences a
             JOIN users u ON u.id = a.user_id
-            WHERE strftime('%Y', a.date_debut) = ?
-            AND strftime('%m', a.date_debut) = ?
+            WHERE EXTRACT(YEAR FROM a.date_debut) = %s
+            AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params_abs_prev = [previous_year, f"{month_number:02d}"]
+        params_abs_prev = [previous_year, month_number]  # pas besoin de f"{month_number:02d}"
 
         if selected_employee != "Tous":
-            query_abs_prev += " AND u.name = ?"
+            query_abs_prev += " AND u.name = %s"
             params_abs_prev.append(selected_employee)
 
         if selected_role != "Tous":
-            query_abs_prev += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+            query_abs_prev += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
             params_abs_prev.append(selected_role)
 
         cursor.execute(query_abs_prev, tuple(params_abs_prev))
         abs_rows_prev = cursor.fetchall()
+
 
         abs_rows_expanded_prev = []
         for user_id, user_name, statut, date_debut, date_fin in abs_rows_prev:
@@ -517,40 +522,48 @@ def show_dashboard():
                 SELECT DISTINCT ft.statut_jour as Statut
                 FROM feuille_temps ft
                 JOIN users u ON u.id = ft.user_id
-                WHERE strftime('%Y', ft.date) = ?
-                AND strftime('%m', ft.date) = ?
+                WHERE EXTRACT(YEAR FROM ft.date) = %s
+                AND EXTRACT(MONTH FROM ft.date) = %s
             """
-            params = [selected_year, f"{i:02d}"]
+            params = [selected_year, i]  # pas besoin de f"{i:02d}"
+
             if selected_employee != "Tous":
-                query_ft += " AND u.name = ?"
+                query_ft += " AND u.name = %s"
                 params.append(selected_employee)
+
             if selected_role != "Tous":
-                query_ft += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+                query_ft += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
                 params.append(selected_role)
+
             cursor.execute(query_ft, tuple(params))
             rows = cursor.fetchall()
             for r in rows:
                 statut_set.add(r[0].capitalize())
+
 
             # Absences
             query_abs = """
                 SELECT DISTINCT a.type_absence as Statut
                 FROM absences a
                 JOIN users u ON u.id = a.user_id
-                WHERE strftime('%Y', a.date_debut) = ?
-                AND strftime('%m', a.date_debut) = ?
+                WHERE EXTRACT(YEAR FROM a.date_debut) = %s
+                AND EXTRACT(MONTH FROM a.date_debut) = %s
             """
-            params_abs = [selected_year, f"{i:02d}"]
+            params_abs = [selected_year, i]  # pas besoin de f"{i:02d}"
+
             if selected_employee != "Tous":
-                query_abs += " AND u.name = ?"
+                query_abs += " AND u.name = %s"
                 params_abs.append(selected_employee)
+
             if selected_role != "Tous":
-                query_abs += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+                query_abs += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
                 params_abs.append(selected_role)
+
             cursor.execute(query_abs, tuple(params_abs))
             rows_abs = cursor.fetchall()
             for r in rows_abs:
                 statut_set.add(r[0].capitalize())
+
 
         statut_options = ["Tous"] + sorted(list(statut_set))
         selected_statut = st.selectbox("Statut", options=statut_options, index=0)
@@ -558,23 +571,26 @@ def show_dashboard():
         evolution_data = []
 
         for i, mois_name in enumerate(mois_fr, start=1):
-            # Feuille de temps
+            # Feuille temps
             query_month = """
                 SELECT u.id as user_id, u.name as Utilisateur,
                     ft.statut_jour as Statut,
                     COUNT(*) as Jours
                 FROM feuille_temps ft
                 JOIN users u ON u.id = ft.user_id
-                WHERE strftime('%Y', ft.date) = ?
-                AND strftime('%m', ft.date) = ?
+                WHERE EXTRACT(YEAR FROM ft.date) = %s
+                AND EXTRACT(MONTH FROM ft.date) = %s
             """
-            params_month = [selected_year, f"{i:02d}"]
+            params_month = [selected_year, i]  # pas besoin de f"{i:02d}"
+
             if selected_employee != "Tous":
-                query_month += " AND u.name = ?"
+                query_month += " AND u.name = %s"
                 params_month.append(selected_employee)
+
             if selected_role != "Tous":
-                query_month += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+                query_month += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
                 params_month.append(selected_role)
+
             query_month += " GROUP BY u.id, u.name, ft.statut_jour"
             cursor.execute(query_month, tuple(params_month))
             rows_month = cursor.fetchall()
@@ -588,16 +604,19 @@ def show_dashboard():
                     a.date_fin
                 FROM absences a
                 JOIN users u ON u.id = a.user_id
-                WHERE strftime('%Y', a.date_debut) = ?
-                AND strftime('%m', a.date_debut) = ?
+                WHERE EXTRACT(YEAR FROM a.date_debut) = %s
+                AND EXTRACT(MONTH FROM a.date_debut) = %s
             """
-            params_abs_month = [selected_year, f"{i:02d}"]
+            params_abs_month = [selected_year, i]
+
             if selected_employee != "Tous":
-                query_abs_month += " AND u.name = ?"
+                query_abs_month += " AND u.name = %s"
                 params_abs_month.append(selected_employee)
+
             if selected_role != "Tous":
-                query_abs_month += " AND u.id IN (SELECT user_id FROM roles WHERE role = ?)"
+                query_abs_month += " AND u.id IN (SELECT user_id FROM roles WHERE role = %s)"
                 params_abs_month.append(selected_role)
+
             cursor.execute(query_abs_month, tuple(params_abs_month))
             abs_rows_month = cursor.fetchall()
 
@@ -608,6 +627,7 @@ def show_dashboard():
                     if current.year == int(selected_year) and current.month == i:
                         abs_rows_expanded_month.append((user_id, user_name, statut, 1))
                     current += timedelta(days=1)
+
             df_month_abs = pd.DataFrame(abs_rows_expanded_month, columns=["user_id", "Utilisateur", "Statut", "Jours"])
 
             df_month_combined = pd.concat([df_month_ft, df_month_abs], ignore_index=True)
@@ -631,6 +651,7 @@ def show_dashboard():
                         "Statut": statut_row.Statut,
                         "Jours": statut_row.Jours
                     })
+
 
         df_evolution = pd.DataFrame(evolution_data, columns=["Mois", "Statut", "Jours"])
 
@@ -667,27 +688,29 @@ def show_dashboard():
         month_number = mois_fr.index(selected_month_name) + 1
         previous_year = str(int(selected_year) - 1)
 
+        # Calcul total jours d'absences approuvées
         query = """
-        SELECT SUM(JULIANDAY(date_fin) - JULIANDAY(date_debut) + 1) as total_jours
-        FROM absences a
-        JOIN users u ON a.user_id = u.id
-        LEFT JOIN roles r ON u.id = r.user_id
-        WHERE statut = 'Approuvée'
-        AND strftime('%Y', date_debut) = ?
-        AND strftime('%m', date_debut) = ?
+            SELECT SUM((a.date_fin - a.date_debut) + 1) as total_jours
+            FROM absences a
+            JOIN users u ON a.user_id = u.id
+            LEFT JOIN roles r ON u.id = r.user_id
+            WHERE a.statut = 'Approuvée'
+            AND EXTRACT(YEAR FROM a.date_debut) = %s
+            AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params = [selected_year, f"{month_number:02d}"]
+        params = [selected_year, month_number]
 
         if selected_employee != "Tous":
-            query += " AND u.name = ?"
+            query += " AND u.name = %s"
             params.append(selected_employee)
 
         if selected_role != "Tous":
-            query += " AND r.role = ?"
+            query += " AND r.role = %s"
             params.append(selected_role)
 
-        cursor.execute(query, params)
+        cursor.execute(query, tuple(params))
         total_jours_absence = cursor.fetchone()[0] or 0
+
 
         params_prev = [previous_year, f"{month_number:02d}"]
 
@@ -705,31 +728,34 @@ def show_dashboard():
         else:
             variation = f"{((total_jours_absence - total_jours_prev) / total_jours_prev * 100):+.0f}%"
         
+        # Requête total absences approuvées
         query_total_absences = """
             SELECT COUNT(*) 
             FROM absences a
             JOIN users u ON a.user_id = u.id
             LEFT JOIN roles r ON u.id = r.user_id
             WHERE a.statut = 'Approuvée'
-            AND strftime('%Y', a.date_debut) = ?
-            AND strftime('%m', a.date_debut) = ?
+            AND EXTRACT(YEAR FROM a.date_debut) = %s
+            AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
 
+        # Requête télétravail
         query_teletravail = query_total_absences + " AND a.type_absence = 'Télétravail'"
 
-        params = [selected_year, f"{month_number:02d}"]
+        params = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
 
         if selected_employee != "Tous":
-            query_total_absences += " AND u.name = ?"
-            query_teletravail += " AND u.name = ?"
+            query_total_absences += " AND u.name = %s"
+            query_teletravail += " AND u.name = %s"
             params.append(selected_employee)
 
         if selected_role != "Tous":
-            query_total_absences += " AND r.role = ?"
-            query_teletravail += " AND r.role = ?"
+            query_total_absences += " AND r.role = %s"
+            query_teletravail += " AND r.role = %s"
             params.append(selected_role)
 
-        cursor.execute(query_total_absences, params)
+
+        cursor.execute(query_total_absences, tuple(params))
         total_absences = cursor.fetchone()[0] or 0
 
         cursor.execute(query_teletravail, params)
@@ -767,28 +793,30 @@ def show_dashboard():
         jours_ouvres_prev = business_days_in_month(year_int - 1, month_number)
 
 
+        # Calcul total jours d'absences (hors télétravail)
         query_abs_days = """
-        SELECT COALESCE(SUM(JULIANDAY(a.date_fin) - JULIANDAY(a.date_debut) + 1), 0)
-        FROM absences a
-        JOIN users u ON a.user_id = u.id
-        LEFT JOIN roles r ON u.id = r.user_id
-        WHERE a.statut = 'Approuvée'
-        AND a.type_absence <> 'Télétravail'
-        AND strftime('%Y', a.date_debut) = ?
-        AND strftime('%m', a.date_debut) = ?
+            SELECT COALESCE(SUM((a.date_fin - a.date_debut) + 1), 0)
+            FROM absences a
+            JOIN users u ON a.user_id = u.id
+            LEFT JOIN roles r ON u.id = r.user_id
+            WHERE a.statut = 'Approuvée'
+            AND a.type_absence <> 'Télétravail'
+            AND EXTRACT(YEAR FROM a.date_debut) = %s
+            AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params_abs = [selected_year, f"{month_number:02d}"]
+        params_abs = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
 
         if selected_employee != "Tous":
-            query_abs_days += " AND u.name = ?"
+            query_abs_days += " AND u.name = %s"
             params_abs.append(selected_employee)
 
         if selected_role != "Tous":
-            query_abs_days += " AND r.role = ?"
+            query_abs_days += " AND r.role = %s"
             params_abs.append(selected_role)
 
-        cursor.execute(query_abs_days, params_abs)
+        cursor.execute(query_abs_days, tuple(params_abs))
         jours_absence_courant = cursor.fetchone()[0] or 0
+
 
         params_abs_prev = [previous_year, f"{month_number:02d}"]
         if selected_employee != "Tous":
@@ -800,21 +828,24 @@ def show_dashboard():
         jours_absence_prev = cursor.fetchone()[0] or 0
 
         query_headcount = """
-        SELECT COUNT(*)
-        FROM users u
-        LEFT JOIN roles r ON u.id = r.user_id
-        WHERE u.is_active = 1
+            SELECT COUNT(*)
+            FROM users u
+            LEFT JOIN roles r ON u.id = r.user_id
+            WHERE u.is_active = 1
         """
         params_hc = []
+
         if selected_employee != "Tous":
-            query_headcount += " AND u.name = ?"
+            query_headcount += " AND u.name = %s"
             params_hc.append(selected_employee)
+
         if selected_role != "Tous":
-            query_headcount += " AND r.role = ?"
+            query_headcount += " AND r.role = %s"
             params_hc.append(selected_role)
 
-        cursor.execute(query_headcount, params_hc)
+        cursor.execute(query_headcount, tuple(params_hc))
         effectif = cursor.fetchone()[0] or 0
+
 
         denom_courant = jours_ouvres_courant * effectif
         denom_prev = jours_ouvres_prev * effectif
@@ -838,27 +869,28 @@ def show_dashboard():
             variation_abs = f"{((taux_absenteisme - taux_absenteisme_prev) / taux_absenteisme_prev * 100):+.0f}%"
 
         query_top_abs = """
-        SELECT u.name, COALESCE(SUM(JULIANDAY(a.date_fin) - JULIANDAY(a.date_debut) + 1), 0) as jours_abs
-        FROM absences a
-        JOIN users u ON a.user_id = u.id
-        LEFT JOIN roles r ON u.id = r.user_id
-        WHERE a.statut = 'Approuvée'
-        AND a.type_absence <> 'Télétravail'
-        AND strftime('%Y', a.date_debut) = ?
-        AND strftime('%m', a.date_debut) = ?
+            SELECT u.name, COALESCE(SUM((a.date_fin - a.date_debut) + 1), 0) as jours_abs
+            FROM absences a
+            JOIN users u ON a.user_id = u.id
+            LEFT JOIN roles r ON u.id = r.user_id
+            WHERE a.statut = 'Approuvée'
+            AND a.type_absence <> 'Télétravail'
+            AND EXTRACT(YEAR FROM a.date_debut) = %s
+            AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params_top = [selected_year, f"{month_number:02d}"]
+        params_top = [selected_year, month_number]
 
         if selected_employee != "Tous":
-            query_top_abs += " AND u.name = ?"
+            query_top_abs += " AND u.name = %s"
             params_top.append(selected_employee)
+
         if selected_role != "Tous":
-            query_top_abs += " AND r.role = ?"
+            query_top_abs += " AND r.role = %s"
             params_top.append(selected_role)
 
         query_top_abs += " GROUP BY u.name ORDER BY jours_abs DESC LIMIT 1"
 
-        cursor.execute(query_top_abs, params_top)
+        cursor.execute(query_top_abs, tuple(params_top))
         row = cursor.fetchone()
         if row:
             top_name, top_days = row
@@ -988,13 +1020,15 @@ def show_dashboard():
                 FROM absences a
                 JOIN users u ON a.user_id = u.id
                 WHERE a.statut = 'Approuvée'
-                AND strftime('%Y', a.date_debut) = ?
-                AND strftime('%m', a.date_debut) = ?
+                AND EXTRACT(YEAR FROM a.date_debut) = %s
+                AND EXTRACT(MONTH FROM a.date_debut) = %s
                 AND a.type_absence <> 'Télétravail'
             """
-            params = [selected_year, f"{month_index:02d}"]
-            cursor.execute(query_abs, params)
+            params = [selected_year, month_index]  # pas besoin de f"{month_index:02d}"
+
+            cursor.execute(query_abs, tuple(params))
             absences = cursor.fetchall()
+
 
             for name, type_abs, start, end in absences:
                 start_date = pd.to_datetime(start).date()
@@ -1095,28 +1129,30 @@ def show_dashboard():
 
             def get_monthly_absences(year, selected_employee, selected_role):
                 query = """
-                SELECT strftime('%m', a.date_debut) as mois,
-                    COALESCE(SUM(JULIANDAY(a.date_fin) - JULIANDAY(a.date_debut) + 1), 0) as jours_abs
-                FROM absences a
-                JOIN users u ON a.user_id = u.id
-                LEFT JOIN roles r ON u.id = r.user_id
-                WHERE a.statut = 'Approuvée'
-                AND strftime('%Y', a.date_debut) = ?
-                AND a.type_absence <> 'Télétravail'
+                    SELECT EXTRACT(MONTH FROM a.date_debut) as mois,
+                        COALESCE(SUM((a.date_fin - a.date_debut) + 1), 0) as jours_abs
+                    FROM absences a
+                    JOIN users u ON a.user_id = u.id
+                    LEFT JOIN roles r ON u.id = r.user_id
+                    WHERE a.statut = 'Approuvée'
+                    AND EXTRACT(YEAR FROM a.date_debut) = %s
+                    AND a.type_absence <> 'Télétravail'
                 """
                 params = [year]
 
                 if selected_employee != "Tous":
-                    query += " AND u.name = ?"
+                    query += " AND u.name = %s"
                     params.append(selected_employee)
+
                 if selected_role != "Tous":
-                    query += " AND r.role = ?"
+                    query += " AND r.role = %s"
                     params.append(selected_role)
 
                 query += " GROUP BY mois ORDER BY mois"
 
-                cursor.execute(query, params)
+                cursor.execute(query, tuple(params))
                 rows = cursor.fetchall()
+
 
                 data = {m: 0 for m in range(1, 13)}
                 for row in rows:
@@ -1177,34 +1213,37 @@ def show_dashboard():
                     jours_ouvres = business_days_in_month(int(selected_year), i)
 
                     query_abs = """
-                        SELECT COALESCE(SUM(JULIANDAY(a.date_fin) - JULIANDAY(a.date_debut) + 1), 0)
+                        SELECT COALESCE(SUM((a.date_fin - a.date_debut) + 1), 0)
                         FROM absences a
                         JOIN users u ON a.user_id = u.id
                         LEFT JOIN roles r ON u.id = r.user_id
                         WHERE a.statut = 'Approuvée'
-                        AND strftime('%Y', a.date_debut) = ?
-                        AND strftime('%m', a.date_debut) = ?
+                        AND EXTRACT(YEAR FROM a.date_debut) = %s
+                        AND EXTRACT(MONTH FROM a.date_debut) = %s
                         AND a.type_absence <> 'Télétravail'
                     """
-                    params = [selected_year, f"{i:02d}"]
+                    params = [selected_year, i]  # pas besoin de f"{i:02d}"
 
                     if selected_employee != "Tous":
-                        query_abs += " AND u.name = ?"
+                        query_abs += " AND u.name = %s"
                         params.append(selected_employee)
+
                     if selected_role != "Tous":
-                        query_abs += " AND r.role = ?"
+                        query_abs += " AND r.role = %s"
                         params.append(selected_role)
 
-                    cursor.execute(query_abs, params)
+                    cursor.execute(query_abs, tuple(params))
                     total_abs = cursor.fetchone()[0]
+
 
                     query_emp = "SELECT COUNT(*) FROM users u"
                     params_emp = []
 
                     if selected_employee != "Tous":
-                        query_emp += " WHERE u.name = ?"
+                        query_emp += " WHERE u.name = %s"
                         params_emp.append(selected_employee)
-                    cursor.execute(query_emp, params_emp)
+
+                    cursor.execute(query_emp, tuple(params_emp))
                     nb_employes = cursor.fetchone()[0]
 
                     total_jours_ouvres = jours_ouvres * nb_employes
@@ -1249,32 +1288,33 @@ def show_dashboard():
                     '>
                     Employés avec 0 absences ({selected_month_name} {selected_year})</h4>
                 """, unsafe_allow_html=True)
-
+                #
                 query_zero_abs = """
-                SELECT u.name, COALESCE(r.role, 'N/A') as role
-                FROM users u
-                LEFT JOIN roles r ON u.id = r.user_id
-                LEFT JOIN (
-                    SELECT a.user_id
-                    FROM absences a
-                    WHERE a.statut = 'Approuvée'
-                    AND strftime('%Y', a.date_debut) = ?
-                    AND strftime('%m', a.date_debut) = ?
-                    AND a.type_absence <> 'Télétravail'
-                    GROUP BY a.user_id
-                ) abs ON u.id = abs.user_id
-                WHERE abs.user_id IS NULL
+                    SELECT u.name, COALESCE(r.role, 'N/A') as role
+                    FROM users u
+                    LEFT JOIN roles r ON u.id = r.user_id
+                    LEFT JOIN (
+                        SELECT a.user_id
+                        FROM absences a
+                        WHERE a.statut = 'Approuvée'
+                        AND EXTRACT(YEAR FROM a.date_debut) = %s
+                        AND EXTRACT(MONTH FROM a.date_debut) = %s
+                        AND a.type_absence <> 'Télétravail'
+                        GROUP BY a.user_id
+                    ) abs ON u.id = abs.user_id
+                    WHERE abs.user_id IS NULL
                 """
-                params_zero = [selected_year, f"{month_number:02d}"]
+                params_zero = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
 
                 if selected_employee != "Tous":
-                    query_zero_abs += " AND u.name = ?"
+                    query_zero_abs += " AND u.name = %s"
                     params_zero.append(selected_employee)
+
                 if selected_role != "Tous":
-                    query_zero_abs += " AND r.role = ?"
+                    query_zero_abs += " AND r.role = %s"
                     params_zero.append(selected_role)
 
-                cursor.execute(query_zero_abs, params_zero)
+                cursor.execute(query_zero_abs, tuple(params_zero))
                 zero_rows = cursor.fetchall()
 
                 df_zero = pd.DataFrame(zero_rows, columns=["Employé", "Rôle"])
@@ -1336,36 +1376,38 @@ def show_dashboard():
         selected_month_index = mois_fr.index(selected_month_name)
         selected_month_num = selected_month_index + 1 
 
-        query_hours_cumule = f"""
+        #============================================================================================
+        query_hours_cumule = """
             SELECT SUM(h.heures) as total_saisie
             FROM heures_saisie h
             JOIN roles r ON h.user_id = r.user_id
-            WHERE strftime('%Y', h.date_jour) = '{selected_year}'
-            AND strftime('%m', h.date_jour) <= '{selected_month_num:02d}'
-            {projet_filter}
-            {employee_filter}
+            WHERE EXTRACT(YEAR FROM h.date_jour) = %s
+            AND EXTRACT(MONTH FROM h.date_jour) <= %s
         """
+        params = [selected_year, selected_month_num]
 
         if selected_role != "Tous":
-            query_hours_cumule += f" AND r.role = '{selected_role}'"
+            query_hours_cumule += " AND r.role = %s"
+            params.append(selected_role)
 
-        df_hours_cumule = pd.read_sql_query(query_hours_cumule, conn)
+        df_hours_cumule = pd.read_sql_query(query_hours_cumule, conn, params=params)
         total_saisie_cumule = df_hours_cumule["total_saisie"].iloc[0] if not df_hours_cumule.empty else 0
         total_saisie_cumule = 0 if total_saisie_cumule is None else total_saisie_cumule
 
-        query_hours_month = f"""
+        query_hours_month = """
             SELECT SUM(h.heures) as total_saisie
             FROM heures_saisie h
             JOIN roles r ON h.user_id = r.user_id
-            WHERE strftime('%Y', h.date_jour) = '{selected_year}'
-            AND strftime('%m', h.date_jour) = '{selected_month_num:02d}'
-            {projet_filter}
-            {employee_filter}
+            WHERE EXTRACT(YEAR FROM h.date_jour) = %s
+            AND EXTRACT(MONTH FROM h.date_jour) = %s
         """
-        if selected_role != "Tous":
-            query_hours_month += f" AND r.role = '{selected_role}'"
+        params = [selected_year, selected_month_num]
 
-        df_hours_month = pd.read_sql_query(query_hours_month, conn)
+        if selected_role != "Tous":
+            query_hours_month += " AND r.role = %s"
+            params.append(selected_role)
+
+        df_hours_month = pd.read_sql_query(query_hours_month, conn, params=params)
         total_saisie_month = df_hours_month["total_saisie"].iloc[0] if not df_hours_month.empty else 0
         total_saisie_month = 0 if total_saisie_month is None else total_saisie_month
 
@@ -1403,29 +1445,34 @@ def show_dashboard():
             """, unsafe_allow_html=True)
 
         # Tableau de suivi des projets 
-        query_projets = f"""
+        params = [selected_year, selected_month_num]
+
+        query_projets = """
             SELECT p.id, p.nom, p.heures_prevues, 
-                IFNULL(SUM(h.heures), 0) as heures_reelles
+                COALESCE(SUM(h.heures), 0) AS heures_reelles
             FROM projets p
             LEFT JOIN heures_saisie h 
-                ON h.projet_id = p.id 
-                AND strftime('%Y', h.date_jour) = '{selected_year}'
-                AND strftime('%m', h.date_jour) <= '{selected_month_num:02d}'
-            LEFT JOIN roles r ON h.user_id = r.user_id
-            WHERE 1=1
-            {projet_filter}
-            {employee_filter}
+                ON h.projet_id = p.id
+                AND EXTRACT(YEAR FROM h.date_jour) = %s
+                AND EXTRACT(MONTH FROM h.date_jour) <= %s
+            LEFT JOIN roles r 
+                ON h.user_id = r.user_id
         """
 
         if selected_role != "Tous":
-            query_projets += f" AND r.role = '{selected_role}'"
+            query_projets += " AND r.role = %s"
+            params.append(selected_role)
 
-        query_projets += """
+        query_projets += f"""
+            WHERE 1=1
+            {projet_filter}
+            {employee_filter}
             GROUP BY p.id, p.nom, p.heures_prevues
             ORDER BY p.nom
         """
 
-        df_analyse = pd.read_sql_query(query_projets, conn)
+        df_analyse = pd.read_sql_query(query_projets, conn, params=params)
+
 
         df_analyse["taux_conso"] = df_analyse.apply(
             lambda row: round(row["heures_reelles"] / row["heures_prevues"] * 100, 1) if row["heures_prevues"] else 0,
@@ -1577,20 +1624,24 @@ def show_dashboard():
         employee_filter_evol = employee_filter
         role_filter_evol = f"AND r.role = '{selected_role}'" if selected_role != "Tous" else ""
 
+        params = [selected_year]
         query_evolution = f"""
-            SELECT h.user_id, u.name as employe, strftime('%m', h.date_jour) as mois, SUM(h.heures) as total_heures
+            SELECT h.user_id, u.name AS employe,
+                EXTRACT(MONTH FROM h.date_jour) AS mois,
+                SUM(h.heures) AS total_heures
             FROM heures_saisie h
             JOIN users u ON h.user_id = u.id
             LEFT JOIN roles r ON h.user_id = r.user_id
-            WHERE strftime('%Y', h.date_jour) = '{selected_year}'
+            WHERE EXTRACT(YEAR FROM h.date_jour) = {selected_year}
             {projet_filter_evol}
             {employee_filter_evol}
             {role_filter_evol}
-            GROUP BY h.user_id, mois
+            GROUP BY h.user_id, mois, u.name
             ORDER BY h.user_id, mois
         """
 
-        df_evolution = pd.read_sql_query(query_evolution, conn)
+        df_evolution = pd.read_sql_query(query_evolution, conn, params=params)
+
 
         if not df_evolution.empty:
             df_evolution["mois"] = df_evolution["mois"].astype(int)

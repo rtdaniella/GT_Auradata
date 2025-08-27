@@ -289,7 +289,10 @@ def show_admin():
                         conn = get_connection()
                         cursor = conn.cursor()
                         new_status = 0 if is_active_current else 1
-                        cursor.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_status, selected_user["id"]))
+                        cursor.execute(
+                            "UPDATE users SET is_active = %s WHERE id = %s",
+                            (new_status, selected_user["id"])
+                        )
                         conn.commit()
 
                         if new_status == 1 and is_active_current == 0:
@@ -297,7 +300,10 @@ def show_admin():
                                 temp_pass = generate_temp_password()
                                 hashed = hash_password(temp_pass)
 
-                                cursor.execute("UPDATE users SET password_hashed = ?, activated_once = 1 WHERE id = ?", (hashed, selected_user["id"]))
+                                cursor.execute(
+                                    "UPDATE users SET password_hashed = %s, activated_once = 1 WHERE id = %s",
+                                    (hashed, selected_user["id"])
+                                )
                                 conn.commit()
 
                                 send_email_gmail(selected_user["email"], temp_pass)
@@ -428,24 +434,31 @@ def show_admin():
                                 # Création
                                 cursor.execute("""
                                     INSERT INTO users (email, name, password_hashed, is_active)
-                                    VALUES (?, ?, ?, ?)
+                                    VALUES (%s, %s, %s, %s)
+                                    RETURNING id
                                 """, (email, name, hash_password(generate_temp_password()), 0))
-                                user_id = cursor.lastrowid
+
+                                user_id = cursor.fetchone()[0]
+
                                 cursor.execute("""
                                     INSERT INTO roles (user_id, role)
-                                    VALUES (?, ?)
+                                    VALUES (%s, %s)
                                 """, (user_id, role))
+
                                 conn.commit()
                                 st.toast("✅ Utilisateur ajouté avec succès !")
                             else:
                                 # Modification
                                 cursor.execute("""
-                                    UPDATE users SET name = ?, email = ?, is_active = ? WHERE id = ?
+                                    UPDATE users SET name = %s, email = %s, is_active = %s WHERE id = %s
                                 """, (name, email, int(is_active), selected_user_id))
+
                                 cursor.execute("""
-                                    UPDATE roles SET role = ? WHERE user_id = ?
+                                    UPDATE roles SET role = %s WHERE user_id = %s
                                 """, (role, selected_user_id))
+
                                 conn.commit()
+
                                 st.toast("✏️ Utilisateur modifié avec succès !")
                         except Exception as e:
                             st.error(f"Erreur : {e}")
@@ -536,14 +549,16 @@ def show_admin():
                                 # Ajout
                                 cursor.execute("""
                                     INSERT INTO projets (nom, outil, heures_prevues)
-                                    VALUES (?, ?, ?)
+                                    VALUES (%s, %s, %s)
                                 """, (nom_projet, outil_projet, heures_prevues))
 
                                 st.success("Projet ajouté avec succès.")
                             else:
                                 # Modification
                                 cursor.execute("""
-                                    UPDATE projets SET nom = ?, outil = ?, heures_prevues = ? WHERE id = ?
+                                    UPDATE projets
+                                    SET nom = %s, outil = %s, heures_prevues = %s
+                                    WHERE id = %s
                                 """, (nom_projet, outil_projet, heures_prevues, selected_projet["id"]))
 
                                 st.success("Projet modifié avec succès.")
@@ -565,8 +580,8 @@ def show_admin():
                         try:
                             conn = get_connection()
                             cursor = conn.cursor()
-                            cursor.execute("DELETE FROM projets WHERE id = ?", (selected_projet["id"],))
-                            cursor.execute("DELETE FROM attribution_projet WHERE projet_id = ?", (selected_projet["id"],))
+                            cursor.execute("DELETE FROM projets WHERE id = %s", (selected_projet["id"],))
+                            cursor.execute("DELETE FROM attribution_projet WHERE projet_id = %s", (selected_projet["id"],))
                             conn.commit()
                             st.success("Projet supprimé avec succès.")
                         except Exception as e:
@@ -732,15 +747,20 @@ def show_admin():
             conn = get_connection()
             cursor = conn.cursor()
 
-            utilisateurs = cursor.execute("SELECT id, name FROM users").fetchall()
-            projets = cursor.execute("SELECT id, nom FROM projets").fetchall()
-            attributions = cursor.execute("""
+            cursor.execute("SELECT id, name FROM users")
+            utilisateurs = cursor.fetchall()
+
+            cursor.execute("SELECT id, nom FROM projets")
+            projets = cursor.fetchall()
+
+            cursor.execute("""
                 SELECT attribution_projet.id, users.name, projets.nom
                 FROM attribution_projet
                 JOIN users ON attribution_projet.user_id = users.id
                 JOIN projets ON attribution_projet.projet_id = projets.id
                 ORDER BY users.name
-            """).fetchall()
+            """)
+            attributions = cursor.fetchall()
             conn.close()
 
             user_dict = {f"{name}": id for id, name in utilisateurs}
@@ -789,17 +809,19 @@ def show_admin():
 
                         if selected_attrib_id is None:
                             cursor.execute("""
-                                INSERT OR IGNORE INTO attribution_projet (user_id, projet_id)
-                                VALUES (?, ?)
+                                INSERT INTO attribution_projet (user_id, projet_id)
+                                VALUES (%s, %s)
+                                ON CONFLICT (user_id, projet_id) DO NOTHING
                             """, (user_id, projet_id))
                             st.success("Attribution ajoutée avec succès.")
                         else:
                             cursor.execute("""
                                 UPDATE attribution_projet
-                                SET user_id = ?, projet_id = ?
-                                WHERE id = ?
+                                SET user_id = %s, projet_id = %s
+                                WHERE id = %s
                             """, (user_id, projet_id, selected_attrib_id))
                             st.success("Attribution modifiée avec succès.")
+
                         conn.commit()
                     except Exception as e:
                         st.error(f"Erreur : {e}")
@@ -818,7 +840,10 @@ def show_admin():
                         try:
                             conn = get_connection()
                             cursor = conn.cursor()
-                            cursor.execute("DELETE FROM attribution_projet WHERE id = ?", (selected_attrib_id,))
+                            cursor.execute(
+                                "DELETE FROM attribution_projet WHERE id = %s",
+                                (selected_attrib_id,)
+                            )
                             conn.commit()
                             st.success("Attribution supprimée avec succès.")
                         except Exception as e:
@@ -891,9 +916,10 @@ def show_admin():
                         cursor = conn.cursor()
                         cursor.execute("""
                             INSERT INTO parametres_conges (annee, cp_total, rtt_total)
-                            VALUES (?, ?, ?)
-                            ON CONFLICT(annee) DO UPDATE 
-                            SET cp_total = excluded.cp_total, rtt_total = excluded.rtt_total
+                            VALUES (%s, %s, %s)
+                            ON CONFLICT (annee) DO UPDATE
+                            SET cp_total = EXCLUDED.cp_total,
+                                rtt_total = EXCLUDED.rtt_total
                         """, (annee, cp_total, rtt_total))
                         conn.commit()
                         conn.close()

@@ -13,7 +13,9 @@ def get_nb_teletravail_semaine(user_id, date_debut, date_fin, conn):
     df_tt = pd.read_sql_query("""
         SELECT date_debut, date_fin
         FROM absences
-        WHERE user_id = ? AND type_absence = 'Télétravail' AND statut IN ('En attente', 'Approuvée')
+        WHERE user_id = %s 
+        AND type_absence = 'Télétravail' 
+        AND statut IN ('En attente', 'Approuvée')
     """, conn, params=(user_id,))
 
     df_tt["date_debut"] = pd.to_datetime(df_tt["date_debut"])
@@ -40,10 +42,11 @@ def get_nb_teletravail_semaine(user_id, date_debut, date_fin, conn):
 #Fonction pour récupérer les soldes annuel définis
 def get_soldes_annuels(conn, annee: int):
     row = pd.read_sql_query(
-        "SELECT cp_total, rtt_total FROM parametres_conges WHERE annee = ?",
+        "SELECT cp_total, rtt_total FROM parametres_conges WHERE annee = %s",
         conn,
         params=(annee,)
     )
+
     if row.empty:
         return 0, 0
     return int(row.iloc[0]["cp_total"]), int(row.iloc[0]["rtt_total"])
@@ -271,7 +274,11 @@ def show_demande_absence():
 
     mois_options = list(range(1, 13))
 
-    df_type_abs = pd.read_sql_query("SELECT DISTINCT type_absence FROM absences WHERE user_id = ?", conn, params=(user_id,))
+    df_type_abs = pd.read_sql_query(
+        "SELECT DISTINCT type_absence FROM absences WHERE user_id = %s",
+        conn,
+        params=(user_id,)
+    )
     type_options = sorted(df_type_abs["type_absence"].dropna().unique())
     type_options = ["Tous"] + type_options
 
@@ -306,9 +313,10 @@ def show_demande_absence():
         df_conso = pd.read_sql_query("""
             SELECT type_absence, date_debut, date_fin
             FROM absences
-            WHERE user_id = ? AND statut = 'Approuvée'
-            AND strftime('%Y', date_debut) = ?
-        """, conn, params=(user_id, str(annee_courante)))
+            WHERE user_id = %s 
+            AND statut = 'Approuvée'
+            AND EXTRACT(YEAR FROM date_debut) = %s
+        """, conn, params=(user_id, annee_courante))
 
         if not df_conso.empty:
             df_conso["date_debut"] = pd.to_datetime(df_conso["date_debut"])
@@ -367,13 +375,19 @@ def show_demande_absence():
             df_cumul = pd.read_sql_query("""
                 SELECT type_absence, date_debut, date_fin
                 FROM absences
-                WHERE user_id = ? AND statut = 'Approuvée'
-                AND strftime('%Y', date_debut) = ?
-            """, conn, params=(user_id, str(annee_courante)))
+                WHERE user_id = %s
+                AND statut = 'Approuvée'
+                AND EXTRACT(YEAR FROM date_debut) = %s
+            """, conn, params=(user_id, annee_courante))
+
 
             cur = conn.cursor()
-            cur.execute("SELECT cp_total, rtt_total FROM parametres_conges WHERE annee = ?", (annee_courante,))
+            cur.execute(
+                "SELECT cp_total, rtt_total FROM parametres_conges WHERE annee = %s",
+                (annee_courante,)
+            )
             row = cur.fetchone()
+
             parametres_annee = {"cp_total": row[0], "rtt_total": row[1]} if row else {"cp_total": 0, "rtt_total": 0}
 
             if df_cumul.empty:
@@ -536,19 +550,29 @@ def show_demande_absence():
         """, unsafe_allow_html=True)
 
         annees_disponibles = pd.read_sql_query("""
-            SELECT DISTINCT strftime('%Y', date_debut) as annee
+            SELECT DISTINCT EXTRACT(YEAR FROM date_debut) AS annee
             FROM absences
-            WHERE user_id = ? AND statut = 'Approuvée'
+            WHERE user_id = %s 
+            AND statut = 'Approuvée'
             ORDER BY annee
         """, conn, params=(user_id,))
+
         annees = annees_disponibles["annee"].tolist()
 
-        df_all_years = pd.read_sql_query(f"""
-            SELECT type_absence, date_debut, date_fin
-            FROM absences
-            WHERE user_id = ? AND statut = 'Approuvée'
-            AND strftime('%Y', date_debut) IN ({','.join(['?']*len(annees))})
-        """, conn, params=(user_id, *map(str, annees)))
+
+        # Générer autant de %s qu'il y a d'années
+        if annees:
+            placeholders = ', '.join(['%s'] * len(annees))
+            df_all_years = pd.read_sql_query(f"""
+                SELECT type_absence, date_debut, date_fin
+                FROM absences
+                WHERE user_id = %s
+                AND statut = 'Approuvée'
+                AND EXTRACT(YEAR FROM date_debut) IN ({placeholders})
+            """, conn, params=(user_id, *annees))
+        else:
+            df_all_years = pd.DataFrame(columns=["type_absence", "date_debut", "date_fin"])
+
 
         if df_all_years.empty:
             st.info("Aucune absence approuvée enregistrée pour ces années.")
@@ -618,9 +642,10 @@ def show_demande_absence():
                 df_evolution = pd.read_sql_query("""
                     SELECT type_absence, date_debut, date_fin
                     FROM absences
-                    WHERE user_id = ? AND statut = 'Approuvée'
-                    AND strftime('%Y', date_debut) = ?
-                """, conn, params=(user_id, str(annee_courante)))
+                    WHERE user_id = %s
+                    AND statut = 'Approuvée'
+                    AND EXTRACT(YEAR FROM date_debut) = %s
+                """, conn, params=(user_id, annee_courante))
 
                 if df_evolution.empty:
                     st.info("Aucune absence approuvée pour l'année sélectionnée.")
@@ -686,9 +711,10 @@ def show_demande_absence():
                 df_repartition = pd.read_sql_query("""
                     SELECT type_absence, date_debut, date_fin
                     FROM absences
-                    WHERE user_id = ? AND statut = 'Approuvée'
-                    AND strftime('%Y', date_debut) = ?
-                """, conn, params=(user_id, str(annee_courante)))
+                    WHERE user_id = %s
+                    AND statut = 'Approuvée'
+                    AND EXTRACT(YEAR FROM date_debut) = %s
+                """, conn, params=(user_id, annee_courante))
 
                 if df_repartition.empty:
                     st.info("Aucune absence approuvée pour l'année sélectionnée.")
@@ -745,7 +771,8 @@ def show_demande_absence():
             df_gantt = pd.read_sql_query("""
                 SELECT type_absence, date_debut, date_fin
                 FROM absences
-                WHERE user_id = ? AND statut = 'Approuvée'
+                WHERE user_id = %s
+                AND statut = 'Approuvée'
                 ORDER BY date_debut
             """, conn, params=(user_id,))
 
@@ -809,7 +836,6 @@ def show_demande_absence():
                     st.plotly_chart(fig, use_container_width=True)
         
     # Onglet demande et historique =====================================
-    # Onglet demande et historique =====================================
     with tab2:
 
         annee_courante = st.session_state.get("annee_filtre", date.today().year)
@@ -819,9 +845,10 @@ def show_demande_absence():
         df_conso = pd.read_sql_query("""
             SELECT type_absence, date_debut, date_fin
             FROM absences
-            WHERE user_id = ? AND statut = 'Approuvée'
-            AND strftime('%Y', date_debut) = ?
-        """, conn, params=(user_id, str(annee_courante)))
+            WHERE user_id = %s
+            AND statut = 'Approuvée'
+            AND EXTRACT(YEAR FROM date_debut) = %s
+        """, conn, params=(user_id, annee_courante))
 
         if not df_conso.empty:
             df_conso["date_debut"] = pd.to_datetime(df_conso["date_debut"])
@@ -860,7 +887,10 @@ def show_demande_absence():
             """, unsafe_allow_html=True)
 
             with st.form("form_demande_absence"):
-                type_absence = st.selectbox("Type d'absence", ["Congé payé", "RTT", "Maladie", "Télétravail", "Congé sans solde"])
+                type_absence = st.selectbox(
+                    "Type d'absence",
+                    ["Congé payé", "RTT", "Maladie", "Télétravail", "Congé sans solde"]
+                )
                 col1, col2 = st.columns(2)
                 with col1:
                     date_debut = st.date_input("Date de début", value=date.today())
@@ -884,6 +914,7 @@ def show_demande_absence():
                 if submitted:
                     nb_jours_demande = calcul_jours_ouvres(date_debut, date_fin)
 
+                    # Vérifications préliminaires
                     if date_fin < date_debut:
                         st.warning("La date de fin ne peut pas être antérieure à la date de début.")
                     elif type_absence == "Maladie" and justificatif is None:
@@ -892,39 +923,8 @@ def show_demande_absence():
                         st.warning(f"Vous ne disposez pas d'assez de jours de congés. Solde restant : {jours_restants_conges:.0f} jour(s).")
                     elif type_absence == "RTT" and nb_jours_demande > jours_restants_rtt:
                         st.warning(f"Vous ne disposez pas d'assez de jours de RTT. Solde restant : {jours_restants_rtt:.0f} jour(s).")
-                    elif type_absence == "Télétravail":
-                        semaines_depassees = get_nb_teletravail_semaine(user_id, date_debut, date_fin, conn)
-                        if semaines_depassees:
-                            semaines_txt = ", ".join([f"Semaine {sem[1]}" for sem in semaines_depassees.keys()])
-                            st.warning(f"⚠️ Vous dépassez la limite de 2 jours de télétravail sur les semaines suivantes : {semaines_txt}.")
-                        else:
-                            nom_justificatif = None
-                            if justificatif is not None:
-                                nom_justificatif = f"{user_id}_{date.today().isoformat()}_{justificatif.name}"
-                                chemin_fichier = os.path.join(UPLOAD_DIR, nom_justificatif)
-                                with open(chemin_fichier, "wb") as f:
-                                    f.write(justificatif.getbuffer())
-
-                            cursor = conn.cursor()
-                            try:
-                                cursor.execute("ALTER TABLE absences ADD COLUMN justificatif TEXT")
-                            except Exception:
-                                pass
-
-                            cursor.execute("""
-                                INSERT INTO absences (user_id, type_absence, date_debut, date_fin, statut, date_demande, justificatif)
-                                VALUES (?, ?, ?, ?, 'En attente', DATE('now'), ?)
-                            """, (
-                                user_id,
-                                type_absence,
-                                date_debut.isoformat(),
-                                date_fin.isoformat(),
-                                nom_justificatif
-                            ))
-
-                            conn.commit()
-                            st.success("Demande de télétravail soumise avec succès.")
                     else:
+                        # Gestion du justificatif
                         nom_justificatif = None
                         if justificatif is not None:
                             nom_justificatif = f"{user_id}_{date.today().isoformat()}_{justificatif.name}"
@@ -932,26 +932,40 @@ def show_demande_absence():
                             with open(chemin_fichier, "wb") as f:
                                 f.write(justificatif.getbuffer())
 
-                        cursor = conn.cursor()
-                        try:
-                            cursor.execute("ALTER TABLE absences ADD COLUMN justificatif TEXT")
-                        except Exception:
-                            pass
+                        # Vérification télétravail
+                        teletravail_ok = True
+                        if type_absence == "Télétravail":
+                            semaines_depassees = get_nb_teletravail_semaine(user_id, date_debut, date_fin, conn)
+                            if semaines_depassees:
+                                semaines_txt = ", ".join([f"Semaine {sem[1]}" for sem in semaines_depassees.keys()])
+                                st.warning(f"⚠️ Vous dépassez la limite de 2 jours de télétravail sur les semaines suivantes : {semaines_txt}.")
+                                teletravail_ok = False
 
-                        cursor.execute("""
-                            INSERT INTO absences (user_id, type_absence, date_debut, date_fin, statut, date_demande, justificatif)
-                            VALUES (?, ?, ?, ?, 'En attente', DATE('now'), ?)
-                        """, (
-                            user_id,
-                            type_absence,
-                            date_debut.isoformat(),
-                            date_fin.isoformat(),
-                            nom_justificatif
-                        ))
+                        # Insertion si tout est ok
+                        if teletravail_ok:
+                            try:
+                                cursor = conn.cursor()
+                                cursor.execute("""
+                                    INSERT INTO absences (
+                                        user_id, type_absence, date_debut, date_fin, statut, date_demande, justificatif
+                                    )
+                                    VALUES (%s, %s, %s, %s, 'En attente', CURRENT_DATE, %s)
+                                """, (
+                                    user_id,
+                                    type_absence,
+                                    date_debut.isoformat(),
+                                    date_fin.isoformat(),
+                                    nom_justificatif
+                                ))
+                                conn.commit()
+                                st.success(f"Demande d'{type_absence.lower()} soumise avec succès.")
+                                st.rerun()
+                            except Exception as e:
+                                conn.rollback()
+                                st.error(f"Erreur lors de l'insertion : {e}")
 
-                        conn.commit()
-                        st.success("Demande d'absence soumise avec succès.")
 
+                    
             # Bloc Motif de refus
             st.markdown(f"""
                 <h4 style='
@@ -973,7 +987,7 @@ def show_demande_absence():
                     v.commentaire
                 FROM validation_absence v
                 JOIN absences a ON v.absence_id = a.id
-                WHERE a.user_id = ? 
+                WHERE a.user_id = %s
                 AND v.statut = 'Rejetée'
                 ORDER BY a.date_demande DESC
             """, conn, params=(user_id,))
@@ -1013,7 +1027,7 @@ def show_demande_absence():
             df = pd.read_sql_query("""
                 SELECT date_demande, type_absence, date_debut, date_fin, justificatif, statut
                 FROM absences
-                WHERE user_id = ?
+                WHERE user_id = %s
                 ORDER BY date_debut DESC
             """, conn, params=(user_id,))
 

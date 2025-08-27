@@ -373,17 +373,22 @@ def show_validation_absence():
                             if commentaire.strip() == "":
                                 st.warning("Veuillez saisir un motif de refus.")
                             else:
-                                cursor.execute("SELECT email FROM users WHERE name = ?", (row["utilisateur"],))
+                                cursor.execute("SELECT email FROM users WHERE name = %s", (row["utilisateur"],))
                                 email_utilisateur = cursor.fetchone()
+                                if email_utilisateur:
+                                    email_utilisateur = email_utilisateur[0] 
+                                else:
+                                    email_utilisateur = None
+
                                 if email_utilisateur:
                                     email_utilisateur = email_utilisateur[0]
                                 else:
                                     email_utilisateur = None
 
-                                cursor.execute("UPDATE absences SET statut = 'Rejetée' WHERE id = ?", (row["id"],))
+                                cursor.execute("UPDATE absences SET statut = 'Rejetée' WHERE id = %s", (row["id"],))
                                 cursor.execute("""
                                     INSERT INTO validation_absence (absence_id, validateur_id, date_validation, statut, commentaire)
-                                    VALUES (?, ?, ?, 'Rejetée', ?)
+                                    VALUES (%s, %s, %s, 'Rejetée', %s)
                                 """, (row["id"], st.session_state.user_id, datetime.today().date(), commentaire))
                                 conn.commit()
 
@@ -396,10 +401,10 @@ def show_validation_absence():
                     st.markdown('</div>', unsafe_allow_html=True)
 
                     if valider:
-                        cursor.execute("UPDATE absences SET statut = 'Approuvée' WHERE id = ?", (row["id"],))
+                        cursor.execute("UPDATE absences SET statut = 'Approuvée' WHERE id = %s", (row["id"],))
                         cursor.execute("""
                             INSERT INTO validation_absence (absence_id, validateur_id, date_validation, statut)
-                            VALUES (?, ?, ?, 'Approuvée')
+                            VALUES (%s, %s, %s, 'Approuvée')
                         """, (row["id"], st.session_state.user_id, datetime.today().date()))
                         conn.commit()
                         st.rerun()
@@ -481,11 +486,12 @@ def show_validation_absence():
                             if commentaire.strip() == "":
                                 st.warning("Veuillez saisir un motif de refus.")
                             else:
-                                cursor.execute("UPDATE absences SET statut = 'Rejetée' WHERE id = ?", (row["id"],))
+                                cursor.execute("UPDATE absences SET statut = 'Rejetée' WHERE id = %s", (row["id"],))
                                 cursor.execute("""
                                     INSERT INTO validation_absence (absence_id, validateur_id, date_validation, statut, commentaire)
-                                    VALUES (?, ?, ?, 'Rejetée', ?)
+                                    VALUES (%s, %s, %s, 'Rejetée', %s)
                                 """, (row["id"], st.session_state.user_id, datetime.today().date(), commentaire))
+
                                 conn.commit()
                                 st.session_state[rejeter_mode_key] = False
                                 st.rerun()
@@ -493,10 +499,10 @@ def show_validation_absence():
                     st.markdown('</div>', unsafe_allow_html=True)
 
                     if valider:
-                        cursor.execute("UPDATE absences SET statut = 'Approuvée' WHERE id = ?", (row["id"],))
+                        cursor.execute("UPDATE absences SET statut = 'Approuvée' WHERE id = %s", (row["id"],))
                         cursor.execute("""
                             INSERT INTO validation_absence (absence_id, validateur_id, date_validation, statut)
-                            VALUES (?, ?, ?, 'Approuvée')
+                            VALUES (%s, %s, %s, 'Approuvée')
                         """, (row["id"], st.session_state.user_id, datetime.today().date()))
                         conn.commit()
                         st.rerun()
