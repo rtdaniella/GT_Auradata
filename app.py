@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 from login import show_login_page
 
-st.set_page_config(page_title="GT Auradata", layout="wide")
+st.set_page_config(page_title="GT Auradata", page_icon="assets/favicon.png", layout="wide")
 
 # Supprimer la barre de défilement de la sidebar
 st.markdown("""

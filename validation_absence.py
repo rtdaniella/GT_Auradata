@@ -373,17 +373,10 @@ def show_validation_absence():
                             if commentaire.strip() == "":
                                 st.warning("Veuillez saisir un motif de refus.")
                             else:
+                                # ⚠️ Vérifier que row contient bien "utilisateur"
                                 cursor.execute("SELECT email FROM users WHERE name = %s", (row["utilisateur"],))
-                                email_utilisateur = cursor.fetchone()
-                                if email_utilisateur:
-                                    email_utilisateur = email_utilisateur[0] 
-                                else:
-                                    email_utilisateur = None
-
-                                if email_utilisateur:
-                                    email_utilisateur = email_utilisateur[0]
-                                else:
-                                    email_utilisateur = None
+                                result = cursor.fetchone()
+                                email_utilisateur = result[0] if result else None
 
                                 cursor.execute("UPDATE absences SET statut = 'Rejetée' WHERE id = %s", (row["id"],))
                                 cursor.execute("""
