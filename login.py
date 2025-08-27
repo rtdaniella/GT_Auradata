@@ -11,8 +11,9 @@ def authenticate(email, password):
         SELECT u.id, u.email, u.name, u.password_hashed, r.role
         FROM users u
         JOIN roles r ON u.id = r.user_id
-        WHERE u.email = ? AND u.password_hashed = ?
+        WHERE u.email = %s AND u.password_hashed = %s
     """, (email, hashed))
+
     user = cursor.fetchone()
     conn.close()
     return user
