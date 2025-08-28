@@ -53,4 +53,6 @@ urllib3==2.5.0
 watchdog==6.0.0
 xlsxwriter==3.2.5
 psycopg2-binary
+streamlit-lottie
+
 
