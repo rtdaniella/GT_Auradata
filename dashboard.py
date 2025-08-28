@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta
 import calendar
 import holidays
 import pandas as pd
+from streamlit_lottie import st_lottie
+import requests
 
 st.set_page_config(page_title="Dashboard admin/RH", layout="wide")
 
@@ -1690,3 +1692,18 @@ def show_dashboard():
             st.plotly_chart(fig_evolution, use_container_width=True)
         else:
             st.info("Aucune donnée disponible pour le filtre sélectionné.")
+
+    # Onglet prévisions à impléménter
+    with tab4:
+        def load_lottieurl(url: str):
+            r = requests.get(url)
+            if r.status_code != 200:
+                return None
+            return r.json()
+
+        st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Prévisions</h2>", unsafe_allow_html=True)
+
+        lottie_animation = load_lottieurl("https://assets2.lottiefiles.com/packages/lf20_jcikwtux.json")
+        st_lottie(lottie_animation, height=300, key="construction")
+
+        st.success("🚧 Cette fonctionnalité sera bientôt disponible...!")
