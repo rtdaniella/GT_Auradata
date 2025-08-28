@@ -188,6 +188,10 @@ def show_validation_absence():
             }
 
             .absence-card.maladie {
+                background-color: #e6f0ff;
+            }
+                
+            .absence-card.conge-sans-solde {
                 background-color: #ffffff;
             }
 

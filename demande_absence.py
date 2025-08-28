@@ -449,11 +449,9 @@ def show_demande_absence():
             )
 
             fig_line.add_hline(y=cp_total, line_dash="solid", line_color="#46c4c4", opacity=0.6,
-                            annotation=dict(text=f"Max CP : {cp_total} jours", font=dict(size=12, color="#046666"),
-                                            bgcolor="rgba(70,196,196,0.15)", bordercolor="#46c4c4", borderwidth=1, borderpad=4, align="left"))
+                            annotation=dict(text=f"Max CP : {cp_total} jours", font=dict(size=12, color="#046666"), align="left"))
             fig_line.add_hline(y=rtt_total, line_dash="solid", line_color="#f6c85f", opacity=0.6,
-                            annotation=dict(text=f"Max RTT : {rtt_total} jours", font=dict(size=12, color="#665000"),
-                                            bgcolor="rgba(246,200,95,0.15)", bordercolor="#f6c85f", borderwidth=1, borderpad=4, align="left"))
+                            annotation=dict(text=f"Max RTT : {rtt_total} jours", font=dict(size=12, color="#665000"), align="left"))
             fig_line.update_layout(
                 height=350,
                 xaxis_tickangle=-45,
