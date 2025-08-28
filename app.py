@@ -41,8 +41,8 @@ else:
         st.markdown("<div style='flex:1;></div>", unsafe_allow_html=True)
         selected = option_menu(
             "",
-            ["Dashboard", "Feuille de temps", "Demande d'absence", "Validation absence", "Validation feuille","","","","","Administration", "Déconnexion"],
-            icons=["bar-chart", "clock", "file-earmark-text", "check-circle", "check-square","\u200b","\u200b","\u200b","\u200b", "gear","box-arrow-right"],
+            ["Dashboard", "Feuille de temps", "Demande d'absence", "Validation absence", "Validation feuille","","","","","Administration", "Guide utilisateur", "Déconnexion"],
+            icons=["bar-chart", "clock", "file-earmark-text", "check-circle", "check-square","\u200b","\u200b","\u200b","\u200b", "gear", "book","box-arrow-right"],
             menu_icon="none",
             styles={
                 "container": {
@@ -90,6 +90,10 @@ else:
     elif selected == "Administration":
         import admin
         admin.show_admin()
+
+    elif selected == "Guide utilisateur":
+        import guide_utilisateur
+        guide_utilisateur.show_guide_utilisateur()
 
     elif selected == "Déconnexion":
         st.session_state.logged_in = False

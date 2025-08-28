@@ -807,7 +807,7 @@ def show_validation_feuille():
         # Construction des lignes projets
         data = []
         for _, proj in df_projets_user.iterrows():
-            row = {"projet_id": proj["id"], "Projet": proj["Projet"]}
+            row = {"projet_id": proj["id"], "Projet": proj["projet"]}
             for jour in jours_sem:
                 mask = (df_heures['projet_id'] == proj['id']) & (df_heures['date_jour'] == jour)
                 row[jour] = float(df_heures[mask]['heures'].values[0]) if not df_heures[mask].empty else 0.0
