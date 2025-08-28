@@ -18,7 +18,7 @@ L’application remplace une solution externe coûteuse par un outil interne fle
 ## 🚀 Déploiement
 Application disponible sur **Streamlit Community Cloud** :  
 👉 [Accéder à l’application](https://gtauradata.streamlit.app/)  
-*(accès restreint, nécessite un compte administrateur)*
+*(accès restreint, nécessite un compte créé par l'administrateur)*
 
 ## 👩‍💻 Auteur
 **Tahinarisoa Daniella Rakotondratsimba**  
