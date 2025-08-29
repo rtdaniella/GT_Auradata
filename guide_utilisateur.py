@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="Deux Blocs avec Étapes", layout="wide")
+st.set_page_config(page_title="Guide utilisateur", layout="wide")
 
 def show_guide_utilisateur():
     st.markdown(
