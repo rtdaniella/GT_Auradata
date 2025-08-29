@@ -60,7 +60,7 @@ def show_guide_utilisateur():
             margin-bottom: 10px;
             font-style: italic;
             font-size: 22px;
-            color: #2e8b57; /* vert foncé élégant */
+            color: #2e8b57;
             position: relative;
         }
         h4::after {
@@ -68,7 +68,7 @@ def show_guide_utilisateur():
             display: block;
             width: 40%;
             margin: 5px auto 0 auto;
-            border-bottom: 2px solid #006633; /* vert pastel */
+            border-bottom: 2px solid #006633;
         }
 
         .bloc h5.subtitle {
