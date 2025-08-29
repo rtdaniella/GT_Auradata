@@ -259,7 +259,7 @@ def show_dashboard():
             AND EXTRACT(MONTH FROM ft.date) = %s
             AND ft.statut_jour = 'travail'
         """
-        params_ft = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
+        params_ft = [selected_year, month_number]
 
         if selected_employee != "Tous":
             query_ft += " AND u.name = %s"
@@ -287,7 +287,7 @@ def show_dashboard():
             WHERE EXTRACT(YEAR FROM a.date_debut) = %s
             AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params_abs = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
+        params_abs = [selected_year, month_number] 
 
         if selected_employee != "Tous":
             query_abs += " AND u.name = %s"
@@ -323,7 +323,7 @@ def show_dashboard():
             WHERE EXTRACT(YEAR FROM ft.date) = %s
             AND EXTRACT(MONTH FROM ft.date) = %s
         """
-        params_ft_prev = [previous_year, month_number]  # pas besoin de f"{month_number:02d}"
+        params_ft_prev = [previous_year, month_number] 
 
         if selected_employee != "Tous":
             query_ft_prev += " AND u.name = %s"
@@ -350,7 +350,7 @@ def show_dashboard():
             WHERE EXTRACT(YEAR FROM a.date_debut) = %s
             AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params_abs_prev = [previous_year, month_number]  # pas besoin de f"{month_number:02d}"
+        params_abs_prev = [previous_year, month_number] 
 
         if selected_employee != "Tous":
             query_abs_prev += " AND u.name = %s"
@@ -561,7 +561,7 @@ def show_dashboard():
                 WHERE EXTRACT(YEAR FROM a.date_debut) = %s
                 AND EXTRACT(MONTH FROM a.date_debut) = %s
             """
-            params_abs = [selected_year, i]  # pas besoin de f"{i:02d}"
+            params_abs = [selected_year, i] 
 
             if selected_employee != "Tous":
                 query_abs += " AND u.name = %s"
@@ -593,7 +593,7 @@ def show_dashboard():
                 WHERE EXTRACT(YEAR FROM ft.date) = %s
                 AND EXTRACT(MONTH FROM ft.date) = %s
             """
-            params_month = [selected_year, i]  # pas besoin de f"{i:02d}"
+            params_month = [selected_year, i] 
 
             if selected_employee != "Tous":
                 query_month += " AND u.name = %s"
@@ -754,7 +754,7 @@ def show_dashboard():
         # Requête télétravail
         query_teletravail = query_total_absences + " AND a.type_absence = 'Télétravail'"
 
-        params = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
+        params = [selected_year, month_number] 
 
         if selected_employee != "Tous":
             query_total_absences += " AND u.name = %s"
@@ -816,7 +816,7 @@ def show_dashboard():
             AND EXTRACT(YEAR FROM a.date_debut) = %s
             AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
-        params_abs = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
+        params_abs = [selected_year, month_number]  
 
         if selected_employee != "Tous":
             query_abs_days += " AND u.name = %s"
@@ -1036,7 +1036,7 @@ def show_dashboard():
                 AND EXTRACT(MONTH FROM a.date_debut) = %s
                 AND a.type_absence <> 'Télétravail'
             """
-            params = [selected_year, month_index]  # pas besoin de f"{month_index:02d}"
+            params = [selected_year, month_index] 
 
             cursor.execute(query_abs, tuple(params))
             absences = cursor.fetchall()
@@ -1088,7 +1088,7 @@ def show_dashboard():
 
             rows_per_page = 10
             total_rows = len(df_week)
-            total_pages = (total_rows + rows_per_page - 1) // rows_per_page  # ceil
+            total_pages = (total_rows + rows_per_page - 1) // rows_per_page 
 
             page = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1)
 
@@ -1234,7 +1234,7 @@ def show_dashboard():
                         AND EXTRACT(MONTH FROM a.date_debut) = %s
                         AND a.type_absence <> 'Télétravail'
                     """
-                    params = [selected_year, i]  # pas besoin de f"{i:02d}"
+                    params = [selected_year, i] 
 
                     if selected_employee != "Tous":
                         query_abs += " AND u.name = %s"
@@ -1316,7 +1316,7 @@ def show_dashboard():
                     ) abs ON u.id = abs.user_id
                     WHERE abs.user_id IS NULL
                 """
-                params_zero = [selected_year, month_number]  # pas besoin de f"{month_number:02d}"
+                params_zero = [selected_year, month_number] 
 
                 if selected_employee != "Tous":
                     query_zero_abs += " AND u.name = %s"
@@ -1336,7 +1336,7 @@ def show_dashboard():
                 else:
                     rows_per_page = 6
                     total_rows = len(df_zero)
-                    total_pages = (total_rows + rows_per_page - 1) // rows_per_page  # ceil
+                    total_pages = (total_rows + rows_per_page - 1) // rows_per_page 
 
                     page = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1, key="page_1")
 
