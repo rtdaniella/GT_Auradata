@@ -41,8 +41,8 @@ else:
         st.markdown("<div style='flex:1;></div>", unsafe_allow_html=True)
         selected = option_menu(
             "",
-            ["Dashboard", "Feuille de temps", "Demande d'absence", "Validation absence", "Validation feuille","","","","","Administration", "Guide utilisateur", "Déconnexion"],
-            icons=["bar-chart", "clock", "file-earmark-text", "check-circle", "check-square","\u200b","\u200b","\u200b","\u200b", "gear", "book","box-arrow-right"],
+            ["Dashboard", "Feuille de temps", "Demande d'absence", "Validation absence", "Validation feuille","","","","Administration", "Guide utilisateur", "Déconnexion"],
+            icons=["bar-chart", "clock", "file-earmark-text", "check-circle", "check-square","\u200b","\u200b","\u200b", "gear", "book","box-arrow-right"],
             menu_icon="none",
             styles={
                 "container": {
