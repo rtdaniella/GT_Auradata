@@ -821,25 +821,31 @@ def show_admin():
                 st.markdown("### ✏️ Modification ")
 
             # Formulaire
+            # Formulaire
             with st.form("form_attribution"):
                 # Select utilisateur
-                user_ids = list(user_dict.keys())
-                user_names = list(user_dict.values())
-                selected_user_index = user_ids.index(default_user_id) if default_user_id in user_ids else 0
-                selected_user_name = st.selectbox("Utilisateur", user_names, index=selected_user_index)
-                user_id = user_ids[user_names.index(selected_user_name)]
+                selected_user_id = st.selectbox(
+                    "Utilisateur",
+                    list(user_dict.keys()),  # valeurs internes = IDs
+                    index=list(user_dict.keys()).index(default_user_id) if default_user_id in user_dict else 0,
+                    format_func=lambda x: user_dict[x]  # affichage = nom
+                )
+                selected_user_name = user_dict[selected_user_id]
 
                 # Select projet
-                projet_ids = list(projet_dict.keys())
-                projet_names = list(projet_dict.values())
-                selected_projet_index = projet_ids.index(default_projet_id) if default_projet_id in projet_ids else 0
-                selected_projet_name = st.selectbox("Projet", projet_names, index=selected_projet_index)
-                projet_id = projet_ids[projet_names.index(selected_projet_name)]
+                selected_projet_id = st.selectbox(
+                    "Projet",
+                    list(projet_dict.keys()),  # valeurs internes = IDs
+                    index=list(projet_dict.keys()).index(default_projet_id) if default_projet_id in projet_dict else 0,
+                    format_func=lambda x: projet_dict[x]  # affichage = nom
+                )
+                selected_projet_name = projet_dict[selected_projet_id]
 
                 # Dates
                 date_debut = st.date_input("Date de début", value=default_date_debut)
                 date_fin = st.date_input("Date de fin", value=default_date_fin)
 
+                # Boutons
                 if selected_attrib_id is not None:
                     col_btn1, col_btn2 = st.columns([1, 5])
                     with col_btn1:
@@ -861,14 +867,14 @@ def show_admin():
                                 INSERT INTO attribution_projet (user_id, projet_id, date_debut, date_fin)
                                 VALUES (%s, %s, %s, %s)
                                 ON CONFLICT (user_id, projet_id) DO NOTHING
-                            """, (user_id, projet_id, date_debut, date_fin))
+                            """, (selected_user_id, selected_projet_id, date_debut, date_fin))
                             st.success("Attribution ajoutée avec succès.")
                         else:
                             cursor.execute("""
                                 UPDATE attribution_projet
                                 SET user_id = %s, projet_id = %s, date_debut = %s, date_fin = %s
                                 WHERE id = %s
-                            """, (user_id, projet_id, date_debut, date_fin, selected_attrib_id))
+                            """, (selected_user_id, selected_projet_id, date_debut, date_fin, selected_attrib_id))
                             st.success("Attribution modifiée avec succès.")
 
                         conn.commit()
@@ -899,6 +905,7 @@ def show_admin():
                             conn.close()
                         st.session_state.confirm_delete_attrib = False
                         st.rerun()
+
 
 
 
