@@ -823,29 +823,37 @@ def show_admin():
             # Formulaire
             # Formulaire
             with st.form("form_attribution"):
-                # Select utilisateur
+                # ----- Utilisateur -----
+                user_keys = list(user_dict.keys())
+                if default_user_id not in user_keys:
+                    default_user_id = user_keys[0] if user_keys else None
+
                 selected_user_id = st.selectbox(
                     "Utilisateur",
-                    list(user_dict.keys()),  # valeurs internes = IDs
-                    index=list(user_dict.keys()).index(default_user_id) if default_user_id in user_dict else 0,
-                    format_func=lambda x: user_dict[x]  # affichage = nom
+                    user_keys,
+                    index=user_keys.index(default_user_id) if default_user_id in user_keys else 0,
+                    format_func=lambda x: user_dict.get(x, "Utilisateur inconnu")
                 )
-                selected_user_name = user_dict[selected_user_id]
+                selected_user_name = user_dict.get(selected_user_id, "Utilisateur inconnu")
 
-                # Select projet
+                # ----- Projet -----
+                projet_keys = list(projet_dict.keys())
+                if default_projet_id not in projet_keys:
+                    default_projet_id = projet_keys[0] if projet_keys else None
+
                 selected_projet_id = st.selectbox(
                     "Projet",
-                    list(projet_dict.keys()),  # valeurs internes = IDs
-                    index=list(projet_dict.keys()).index(default_projet_id) if default_projet_id in projet_dict else 0,
-                    format_func=lambda x: projet_dict[x]  # affichage = nom
+                    projet_keys,
+                    index=projet_keys.index(default_projet_id) if default_projet_id in projet_keys else 0,
+                    format_func=lambda x: projet_dict.get(x, "Projet inconnu")
                 )
-                selected_projet_name = projet_dict[selected_projet_id]
+                selected_projet_name = projet_dict.get(selected_projet_id, "Projet inconnu")
 
-                # Dates
+                # ----- Dates -----
                 date_debut = st.date_input("Date de début", value=default_date_debut)
                 date_fin = st.date_input("Date de fin", value=default_date_fin)
 
-                # Boutons
+                # ----- Boutons -----
                 if selected_attrib_id is not None:
                     col_btn1, col_btn2 = st.columns([1, 5])
                     with col_btn1:
@@ -856,7 +864,7 @@ def show_admin():
                     submit_attrib = st.form_submit_button("Ajouter")
                     delete_attrib = False
 
-                # Ajout / Modification
+                # ----- Ajout / Modification -----
                 if submit_attrib:
                     try:
                         conn = get_connection()
@@ -884,7 +892,7 @@ def show_admin():
                         conn.close()
                     st.rerun()
 
-                # Suppression avec confirmation
+                # ----- Suppression avec confirmation -----
                 if "confirm_delete_attrib" not in st.session_state:
                     st.session_state.confirm_delete_attrib = False
 
@@ -905,6 +913,7 @@ def show_admin():
                             conn.close()
                         st.session_state.confirm_delete_attrib = False
                         st.rerun()
+
 
 
 
