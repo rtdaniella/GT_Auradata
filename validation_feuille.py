@@ -43,6 +43,35 @@ def envoyer_email_rejet(destinataire_email, nom_utilisateur, mois_nom, annee, mo
     except Exception as e:
         print(f"❌ Erreur lors de l'envoi de l'email : {e}")
 
+def envoyer_email_validation(destinataire_email, nom_utilisateur, mois_nom, annee):
+    expediteur_email = st.secrets["email"]["gmail_user"]
+    mot_de_passe_app = st.secrets["email"]["gmail_app_password"]
+
+    msg = EmailMessage()
+    msg['Subject'] = f"Feuille de temps validée - {mois_nom} {annee}"
+    msg['From'] = expediteur_email
+    msg['To'] = destinataire_email
+
+    msg.set_content(f"""
+        Bonjour {nom_utilisateur},
+
+        Votre feuille de temps pour le mois de {mois_nom} {annee} a été validée.
+
+        Merci de revenir dans l'application et compléter vos heures dans le deuxième onglet "Saisie heures" dans la page Feuille de temps.
+
+        Cordialement,
+        L’équipe RH
+    """)
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(expediteur_email, mot_de_passe_app)
+            smtp.send_message(msg)
+        print("✅ Email de validation envoyé avec succès.")
+    except Exception as e:
+        print(f"❌ Erreur lors de l'envoi de l'email de validation : {e}")
+
+
 def show_validation_feuille():
 
     # Droits d'accès
@@ -439,14 +468,28 @@ def show_validation_feuille():
                     col_val, col_rej, _ = st.columns([1.5,2,12])
                     with col_val:
                         if st.button("Valider", key=f"valider_{user_id}_{annee}_{mois}"):
+                            # Mettre à jour le statut dans la DB
                             cur.execute("""
                                 UPDATE feuille_temps_statut
                                 SET statut = 'validée'
                                 WHERE user_id = %s AND annee = %s AND mois = %s
                             """, (user_id, annee, mois))
-
                             conn.commit()
-                            st.success(f"Feuille de temps de {nom} validée.")
+
+                            # Récupérer l'email de l'utilisateur
+                            cur.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+                            result = cur.fetchone()
+                            if result:
+                                destinataire_email = result[0]
+                                try:
+                                    # Appel de la fonction d'envoi d'email de validation
+                                    envoyer_email_validation(destinataire_email, nom, mois_nom, annee)
+                                except Exception as e:
+                                    st.error(f"Erreur lors de l'envoi de l'email : {e}")
+                            else:
+                                st.warning("Email de l'utilisateur introuvable.")
+
+                            st.success(f"✅ Feuille de temps de {nom} validée.")
                             st.rerun()
                     
                     with col_rej:

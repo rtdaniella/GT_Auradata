@@ -197,7 +197,7 @@ def show_feuille_temps():
         </style>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Saisie feuille de temps", "Gestion de projets", "Mes projets", "Historique de validation"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Saisie feuille de temps", "Saisie heures", "Mes projets", "Historique de validation"])
 
     # Saisie feuille
     with tab1:
