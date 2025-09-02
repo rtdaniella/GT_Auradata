@@ -614,7 +614,7 @@ def show_validation_feuille():
         cols = st.columns([6, 0.9])
         with cols[-1]:
             st.download_button(
-                label="📥 Exporter en Excel",
+                label="Exporter en Excel",
                 data=buffer,
                 file_name=nom_fichier,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -748,15 +748,23 @@ def show_validation_feuille():
         try:
             conn = get_connection()
             query_projets_user = """
-                SELECT p.id, p.nom AS Projet
+                SELECT p.id, p.nom AS Projet, ap.date_fin
                 FROM projets p
                 INNER JOIN attribution_projet ap ON ap.projet_id = p.id
                 WHERE ap.user_id = %s
                 ORDER BY p.nom
             """
             df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(selected_user_id,))
-
             conn.close()
+            # Conversion date_fin en date
+            df_projets_user['date_fin'] = pd.to_datetime(df_projets_user['date_fin']).dt.date
+
+            # Filtrer projets expirés
+            today = date.today()
+            df_projets_user = df_projets_user[(df_projets_user['date_fin'].isna()) | (df_projets_user['date_fin'] >= today)]
+
+            # Supprimer date_fin pour AgGrid si inutile
+            df_projets_user = df_projets_user.drop(columns=['date_fin'])
         except Exception as e:
             st.error(f"Erreur lors du chargement des projets : {e}")
             st.stop()

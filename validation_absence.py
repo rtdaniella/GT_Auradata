@@ -505,6 +505,9 @@ def show_validation_absence():
                         st.rerun()
 
     # Historique
+
+    # Historique
+    # Historique
     with tab2:
         utilisateurs_h = historique_df["utilisateur"].dropna().unique().tolist()
         type_absence_h = historique_df["type_absence"].dropna().unique().tolist()
@@ -518,10 +521,10 @@ def show_validation_absence():
 
         annees_completes = list(range(2023, annee_actuelle + 1))
         annee_options = ["Toutes"] + [str(a) for a in reversed(annees_completes)]
-
         mois_nommes = [(num, nom) for num, nom in mois_fr.items()]
         mois_options = ["Tous"] + [nom for _, nom in mois_nommes]
 
+        # Filtres
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             utilisateur_filtre = st.selectbox("🙍 Utilisateur", ["Tous"] + sorted(utilisateurs_h), key="hist_utilisateur")
@@ -535,20 +538,15 @@ def show_validation_absence():
             statut_filtre = st.selectbox("📌 Statut", ["Tous"] + sorted(statut_h), key="hist_statut")
 
         df_hist_filtre = historique_df.copy()
-
         if utilisateur_filtre != "Tous":
             df_hist_filtre = df_hist_filtre[df_hist_filtre["utilisateur"] == utilisateur_filtre]
-
         if annee_filtre != "Toutes":
             df_hist_filtre = df_hist_filtre[df_hist_filtre["date_demande"].dt.year == int(annee_filtre)]
-
         if mois_filtre != "Tous":
             mois_num = [num for num, nom in mois_nommes if nom == mois_filtre][0]
             df_hist_filtre = df_hist_filtre[df_hist_filtre["date_demande"].dt.month == mois_num]
-
         if type_filtre != "Tous":
             df_hist_filtre = df_hist_filtre[df_hist_filtre["type_absence"] == type_filtre]
-
         if statut_filtre != "Tous":
             df_hist_filtre = df_hist_filtre[df_hist_filtre["statut"] == statut_filtre]
 
@@ -557,25 +555,60 @@ def show_validation_absence():
         else:
             df_hist_filtre["Jours demandés"] = df_hist_filtre.apply(
                 lambda x: calculer_jours_ouvres(x["date_debut"], x["date_fin"]), axis=1)
-
             df_hist_filtre["Période"] = df_hist_filtre.apply(
                 lambda x: f"{x['date_debut'].strftime('%d/%m/%Y')} au {x['date_fin'].strftime('%d/%m/%Y')}", axis=1)
             df_hist_filtre["Demandé le"] = df_hist_filtre["date_demande"].dt.strftime("%d/%m/%Y")
 
+            # --- Header du tableau ---
+            header_cols = st.columns([3,2,3,2,2,2], gap="small")
+            headers = ["Utilisateur", "Type d'absence", "Période", "Jours demandés", "Statut", "Actions"]
+            for col, title in zip(header_cols, headers):
+                col.markdown(
+                    f"<div style='background-color:#080686; color:white; text-align:center; font-weight:bold; padding:8px; border:1px solid #000060; height:40px; display:flex; align-items:center; justify-content:center; margin-bottom:10px'>{title}</div>",
+                    unsafe_allow_html=True
+                )
+
+            # --- Lignes du tableau ---
+            for i, row in df_hist_filtre.iterrows():
+                cols = st.columns([3,2,3,2,2,2], gap="small")
+                for j, value in enumerate([
+                    row['utilisateur'],
+                    row['type_absence'],
+                    row['Période'],
+                    row['Jours demandés'],
+                    f"<span class='status-badge {row['statut'].replace(' ', '_')}'>{row['statut']}</span>"  # plus de div blanc
+                ]):
+                    if j != 4:  # sauf pour le statut
+                        cols[j].markdown(
+                            f"<div style='background-color:white; padding:8px; text-align:center; border:1px solid #cccccc; height:50px; display:flex; align-items:center; justify-content:center'>{value}</div>",
+                            unsafe_allow_html=True
+                        )
+                    else:  # statut sans fond blanc
+                        cols[j].markdown(
+                            f"<div style='text-align:center; display:flex; align-items:center; justify-content:center; height:40px'>{value}</div>",
+                            unsafe_allow_html=True
+                        )
+                    
+                # Bouton supprimer
+                with cols[5]:
+                    if st.button("Supprimer", key=f"suppr_{row['id']}"):
+                        cursor.execute("DELETE FROM validation_absence WHERE absence_id = %s", (row['id'],))
+                        cursor.execute("DELETE FROM absences WHERE id = %s", (row['id'],))
+                        conn.commit()
+                        st.toast("Absence supprimée !")
+                        st.rerun()
+
+
+            # --- Export Excel ---
             export_df = df_hist_filtre[[
-                "utilisateur",
-                "type_absence",
-                "Période",
-                "Jours demandés",
-                "Demandé le",
-                "statut"
+                "utilisateur","type_absence","Période","Jours demandés","Demandé le","statut"
             ]].rename(columns={
-                "utilisateur": "Utilisateur",
-                "type_absence": "Type d'absence",
-                "Période": "Période",
-                "Jours demandés": "Jours demandés",
-                "Demandé le": "Date de demande",
-                "statut": "Statut"
+                "utilisateur":"Utilisateur",
+                "type_absence":"Type d'absence",
+                "Période":"Période",
+                "Jours demandés":"Jours demandés",
+                "Demandé le":"Date de demande",
+                "statut":"Statut"
             })
 
             buffer = io.BytesIO()
@@ -583,43 +616,9 @@ def show_validation_absence():
                 export_df.to_excel(writer, index=False, sheet_name='Demandes')
             buffer.seek(0)
 
-            df_hist_filtre["Statut"] = df_hist_filtre["statut"].apply(
-                lambda s: f"<span class='status-badge {s.replace(' ', '_')}'>{s}</span>"
+            st.download_button(
+                label="Exporter en Excel",
+                data=buffer,
+                file_name="historique_absence.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-            display_df = df_hist_filtre[[
-                "Demandé le",
-                "utilisateur",
-                "type_absence",
-                "Période",
-                "Jours demandés",
-                "Statut"
-            ]].rename(columns={
-                "Demandé le": "Date de demande",
-                "utilisateur": "Utilisateur",
-                "type_absence": "Type d'absence",
-                "Période": "Période",
-                "Jours demandés": "Jours demandés",
-                "Statut": "Statut"
-            })
-
-            st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
-
-            nom_fichier = "historique_absence"
-
-            if annee_filtre != "Toutes":
-                nom_fichier += f"_{annee_filtre}"
-
-            if mois_filtre != "Tous":
-                nom_fichier += f"_{mois_filtre}"
-
-            nom_fichier += ".xlsx"
-
-            cols = st.columns([6,0.9])
-
-            with cols[-1]:
-                st.download_button(
-                    label="📥 Exporter en Excel",
-                    data=buffer,
-                    file_name=nom_fichier,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )

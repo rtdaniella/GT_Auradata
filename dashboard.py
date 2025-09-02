@@ -1503,21 +1503,59 @@ def show_dashboard():
 
         df_analyse["statut"] = df_analyse["taux_conso"].apply(definir_statut)
 
-        def style_cell_projet(val, col_name):
-            align = "center" if col_name in ["heures_prevues", "heures_reelles", "taux_conso"] else "center"
-            if col_name in ["heures_prevues", "heures_reelles"]:
-                val = f"{int(val)} h"
-            elif col_name == "taux_conso":
-                val = f"{val:.1f} %"
-            bg_color = "transparent"
-            if col_name == "statut":
-                if "maîtrisé" in val:
-                    bg_color = "#4bb464"
-                elif "dépassement" in val:
-                    bg_color = "#dd3c49"
-                elif "retard" in val:
-                    bg_color = "#ffd54d"
-            return f'<td style="padding:8px; text-align:{align}; background-color:{bg_color};">{val}</td>'
+        def style_cell_projet(val, col_type, show_days=False):
+            """
+            Génère le contenu HTML d'une cellule avec style + couleurs conditionnelles.
+            """
+            if val is None or val == "":
+                return f'<td style="padding:8px; text-align:center;">-</td>'
+
+            try:
+                if show_days:  # Colonnes heures
+                    heures = float(val)
+                    cell_text = f"{int(heures)} h ({heures/8:.2f} j)"
+                    style = "padding:8px; text-align:center;"
+
+                elif col_type == "taux_conso":  # Taux consommation en %
+                    taux = float(val)
+                    if taux <= 1:  # si les données sont sous forme fraction
+                        taux *= 100
+                    cell_text = f"{taux:.0f} %"
+                    style = "padding:8px; text-align:center;"
+
+                elif col_type == "statut":  # Statut avec couleurs
+                    statut = str(val)
+                    cell_text = statut
+
+                    # Choix du background en fonction du statut
+                    if "⚪" in statut:
+                        bg_color = "#d9d9d9"
+                        txt_color = "black"
+                    elif "🟡" in statut:
+                        bg_color = "#ffc91a"
+                        txt_color = "black"
+                    elif "🟢" in statut:
+                        bg_color = "#4bb464"
+                        txt_color = "black"
+                    elif "🔴" in statut:
+                        bg_color = "#d92635"
+                        txt_color = "white"
+                    else:
+                        bg_color = "white"
+                        txt_color = "black"
+
+                    style = f"padding:8px; text-align:center; font-weight:bold; background-color:{bg_color}; color:{txt_color};"
+
+                else:  # Autres colonnes (valeurs brutes)
+                    cell_text = str(val)
+                    style = "padding:8px; text-align:center;"
+
+            except (ValueError, TypeError):
+                cell_text = str(val)
+                style = "padding:8px; text-align:center;"
+
+            return f'<td style="{style}">{cell_text}</td>'
+
 
         html_table = '''
         <table style="
@@ -1535,14 +1573,26 @@ def show_dashboard():
         for row_num, row in df_analyse.iterrows():
             bg_color = "#f9f9f9" if row_num % 2 == 0 else "#ffffff"
             html_table += f'<tr style="background-color:{bg_color};">'
+
+            # Nom du projet
             html_table += f'<td style="padding:8px; font-weight:bold;">{row["nom"]}</td>'
-            html_table += style_cell_projet(row["heures_prevues"], "heures_prevues")
-            html_table += style_cell_projet(row["heures_reelles"], "heures_reelles")
+
+            # Heures prévues avec conversion jours
+            html_table += style_cell_projet(row["heures_prevues"], "heures_prevues", show_days=True)
+
+            # Heures saisies avec conversion jours
+            html_table += style_cell_projet(row["heures_reelles"], "heures_reelles", show_days=True)
+
+            # Taux consommation (affiché en %)
             html_table += style_cell_projet(row["taux_conso"], "taux_conso")
+
+            # Statut
             html_table += style_cell_projet(row["statut"], "statut")
+
             html_table += '</tr>'
 
         html_table += '</table>'
+
 
         st.markdown(f"""
             <h4 style='

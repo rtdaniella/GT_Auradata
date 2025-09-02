@@ -7,6 +7,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+
+
 #Fonction générer mot de passe temporaire
 def generate_temp_password(length=10):
     characters = string.ascii_letters + string.digits + "!@#$%&*"
@@ -27,7 +29,7 @@ def send_email_gmail(to_email, temp_password):
 
     🔐 Mot de passe : {temp_password}
 
-    Veuillez vous connecter dès que possible et le modifier.
+    Veuillez vous connecter en utilisant ce mot de passe.
 
     Merci,
     L'équipe Admin
@@ -477,6 +479,7 @@ def show_admin():
     with tab2:
         col1, _, col2 = st.columns([3, 0.2, 3])
 
+        # ------------------------ FORMULAIRE PROJETS ------------------------
         with col1:
             st.markdown("""
                 <h4 style='
@@ -505,9 +508,11 @@ def show_admin():
             if selected_projet is not None:
                 default_nom = selected_projet["nom"]
                 default_outil = selected_projet["outil"]
+                default_jours = int(selected_projet["heures_prevues"] / 8) if pd.notna(selected_projet["heures_prevues"]) else 0
             else:
                 default_nom = ""
                 default_outil = ""
+                default_jours = 0
 
             if selected_projet is None:
                 st.markdown("### ➕ Création d'un nouveau projet")
@@ -517,14 +522,17 @@ def show_admin():
             with st.form("form_projet"):
                 nom_projet = st.text_input("Nom du projet", value=default_nom)
                 outil_projet = st.text_input("Outil associé", value=default_outil)
-                heures_prevues = st.number_input(
-                    "Heures prévues",
+                
+                # Champ jours uniquement
+                jours_prevus = st.number_input(
+                    "Jours prévus",
                     min_value=0,
                     step=1,
-                    value=int(selected_projet["heures_prevues"]) 
-                        if selected_projet is not None and pd.notna(selected_projet["heures_prevues"]) 
-                        else 0
+                    value=default_jours
                 )
+
+                # Conversion automatique en heures (pour la BDD)
+                heures_prevues = jours_prevus * 8
 
                 submit_label = "Ajouter le projet" if selected_projet is None else "Modifier"
 
@@ -551,7 +559,6 @@ def show_admin():
                                     INSERT INTO projets (nom, outil, heures_prevues)
                                     VALUES (%s, %s, %s)
                                 """, (nom_projet, outil_projet, heures_prevues))
-
                                 st.success("Projet ajouté avec succès.")
                             else:
                                 # Modification
@@ -560,14 +567,13 @@ def show_admin():
                                     SET nom = %s, outil = %s, heures_prevues = %s
                                     WHERE id = %s
                                 """, (nom_projet, outil_projet, heures_prevues, selected_projet["id"]))
-
                                 st.success("Projet modifié avec succès.")
                             conn.commit()
                         except Exception as e:
                             st.error(f"Erreur : {e}")
                         finally:
                             conn.close()
-                        st.rerun() 
+                    st.rerun() 
 
                 if "confirm_delete" not in st.session_state:
                     st.session_state.confirm_delete = False
@@ -591,6 +597,7 @@ def show_admin():
                         st.session_state.confirm_delete = False
                         st.rerun()
 
+        # ------------------------ LISTE DES PROJETS ------------------------
         with col2:
             st.markdown("""
                 <h4 style='
@@ -605,6 +612,7 @@ def show_admin():
                     📁 Liste des projets existants
                 </h4>
             """, unsafe_allow_html=True)
+
             conn = get_connection()
             df_projets = pd.read_sql_query("""
                 SELECT nom AS projet, outil, 
@@ -612,7 +620,6 @@ def show_admin():
                 FROM projets
                 ORDER BY id
             """, conn)
-
             conn.close()
 
             search_proj = st.text_input("🔍 Rechercher un projet")
@@ -622,8 +629,14 @@ def show_admin():
                     df_projets["outil"].str.contains(search_proj, case=False, na=False)
                 ]
 
+            # Colonnes séparées jours et heures
+            df_projets["Jours prévus"] = (df_projets["heures_prevues"] / 8).astype(int)
+            df_projets["Heures prévues"] = df_projets["heures_prevues"].astype(int)
+
+            df_projets_affichage = df_projets[["projet", "outil", "Jours prévus", "Heures prévues"]]
+
             PROJETS_PER_PAGE = 10
-            total_projets = len(df_projets)
+            total_projets = len(df_projets_affichage)
             total_pages_projets = (total_projets - 1) // PROJETS_PER_PAGE + 1
 
             if "page_projets" not in st.session_state:
@@ -639,7 +652,7 @@ def show_admin():
 
             start_proj = (st.session_state.page_projets - 1) * PROJETS_PER_PAGE
             end_proj = start_proj + PROJETS_PER_PAGE
-            df_paginated_projets = df_projets.iloc[start_proj:end_proj]
+            df_paginated_projets = df_projets_affichage.iloc[start_proj:end_proj]
 
             st.markdown(
                 df_paginated_projets.to_html(index=False, escape=False),
@@ -655,12 +668,15 @@ def show_admin():
                 st.button("➡️", on_click=go_next_projets, disabled=(st.session_state.page_projets == total_pages_projets), key="next_proj_btn")
 
             st.markdown(f"<p style='text-align:right; font-style: italic;'>Page {st.session_state.page_projets} sur {total_pages_projets}</p>", unsafe_allow_html=True)
+
+
         
     #-------------------------------------------------- Attribution projet --------------------------------------------------
 
     with tab3:
         col3, _, col4 = st.columns([3, 0.2, 3])
 
+        # -------------------------------------------------- Tableau des attributions --------------------------------------------------
         with col4:
             st.markdown("""
                 <h4 style='
@@ -678,7 +694,10 @@ def show_admin():
 
             conn = get_connection()
             df_attributions = pd.read_sql_query("""
-                SELECT attribution_projet.id AS id, users.name AS utilisateur, projets.nom AS projet
+                SELECT users.name AS utilisateur,
+                    projets.nom AS projet,
+                    attribution_projet.date_debut,
+                    attribution_projet.date_fin
                 FROM attribution_projet
                 JOIN users ON attribution_projet.user_id = users.id
                 JOIN projets ON attribution_projet.projet_id = projets.id
@@ -686,17 +705,23 @@ def show_admin():
             """, conn)
             conn.close()
 
-            search_attrib = st.text_input("🔍 Rechercher une attribution")
-            df_attrib_clean = df_attributions.drop(columns=["id"])
+            # Conversion des dates
+            df_attributions['date_debut'] = pd.to_datetime(df_attributions['date_debut']).dt.date
+            df_attributions['date_fin'] = pd.to_datetime(df_attributions['date_fin']).dt.date
 
+            df_attrib_display = df_attributions.copy()
+
+            # Recherche
+            search_attrib = st.text_input("🔍 Rechercher une attribution")
             if search_attrib:
-                df_attrib_clean = df_attrib_clean[
-                    df_attrib_clean["utilisateur"].str.contains(search_attrib, case=False, na=False) |
-                    df_attrib_clean["projet"].str.contains(search_attrib, case=False, na=False)
+                df_attrib_display = df_attrib_display[
+                    df_attrib_display["utilisateur"].str.contains(search_attrib, case=False, na=False) |
+                    df_attrib_display["projet"].str.contains(search_attrib, case=False, na=False)
                 ]
 
+            # Pagination
             ATTRIBS_PER_PAGE = 10
-            total_attribs = len(df_attrib_clean)
+            total_attribs = len(df_attrib_display)
             total_pages_attribs = (total_attribs - 1) // ATTRIBS_PER_PAGE + 1
 
             if "page_attribs" not in st.session_state:
@@ -712,7 +737,7 @@ def show_admin():
 
             start_attrib = (st.session_state.page_attribs - 1) * ATTRIBS_PER_PAGE
             end_attrib = start_attrib + ATTRIBS_PER_PAGE
-            df_paginated_attrib = df_attrib_clean.iloc[start_attrib:end_attrib]
+            df_paginated_attrib = df_attrib_display.iloc[start_attrib:end_attrib]
 
             st.markdown(
                 df_paginated_attrib.to_html(index=False, escape=False),
@@ -729,7 +754,9 @@ def show_admin():
 
             st.markdown(f"<p style='text-align:right; font-style: italic;'>Page {st.session_state.page_attribs} sur {total_pages_attribs}</p>", unsafe_allow_html=True)
 
+        # -------------------------------------------------- Formulaire attribution --------------------------------------------------
         with col3:
+            import datetime
             st.markdown("""
                 <h4 style='
                     background-color: #d6dcf5;
@@ -754,41 +781,64 @@ def show_admin():
             projets = cursor.fetchall()
 
             cursor.execute("""
-                SELECT attribution_projet.id, users.name, projets.nom
+                SELECT id, user_id, projet_id, date_debut, date_fin
                 FROM attribution_projet
-                JOIN users ON attribution_projet.user_id = users.id
-                JOIN projets ON attribution_projet.projet_id = projets.id
-                ORDER BY users.name
             """)
             attributions = cursor.fetchall()
             conn.close()
 
-            user_dict = {f"{name}": id for id, name in utilisateurs}
-            projet_dict = {f"{nom}": id for id, nom in projets}
-            attrib_options = {f"{user} - {proj}": id for id, user, proj in attributions}
+            # Dictionnaires clé = id, valeur = nom
+            user_dict = {id: name for id, name in utilisateurs}
+            projet_dict = {id: nom for id, nom in projets}
+
+            # Options pour le selectbox
+            attrib_options = {
+                f"{user_dict[user_id]} - {projet_dict[projet_id]}": attrib_id
+                for attrib_id, user_id, projet_id, _, _ in attributions
+            }
             attrib_options = {"➕ Nouvelle attribution": None, **attrib_options}
 
             selected_attrib_label = st.selectbox("Sélectionnez une attribution", list(attrib_options.keys()))
             selected_attrib_id = attrib_options[selected_attrib_label]
 
+            # Préremplissage du formulaire
             if selected_attrib_id is not None:
                 selected_row = next((row for row in attributions if row[0] == selected_attrib_id), None)
-                default_user_id = user_dict[selected_row[1]]
-                default_projet_id = projet_dict[selected_row[2]]
+                default_user_id = selected_row[1]
+                default_projet_id = selected_row[2]
+                default_date_debut = selected_row[3].date() if isinstance(selected_row[3], datetime.datetime) else selected_row[3]
+                default_date_debut = default_date_debut or datetime.date.today()
+                default_date_fin = selected_row[4].date() if isinstance(selected_row[4], datetime.datetime) else selected_row[4]
             else:
                 default_user_id = None
                 default_projet_id = None
+                default_date_debut = datetime.date.today()
+                default_date_fin = None
 
             if selected_attrib_id is None:
                 st.markdown("### ➕ Attribuer un projet")
             else:
-                st.markdown(f"### ✏️ Modification ")
+                st.markdown("### ✏️ Modification ")
 
+            # Formulaire
             with st.form("form_attribution"):
-                selected_user_name = st.selectbox("Utilisateur", list(user_dict.keys()),
-                                                index=list(user_dict.values()).index(default_user_id) if default_user_id else 0)
-                selected_projet_name = st.selectbox("Projet", list(projet_dict.keys()),
-                                                index=list(projet_dict.values()).index(default_projet_id) if default_projet_id else 0)
+                # Select utilisateur
+                user_ids = list(user_dict.keys())
+                user_names = list(user_dict.values())
+                selected_user_index = user_ids.index(default_user_id) if default_user_id in user_ids else 0
+                selected_user_name = st.selectbox("Utilisateur", user_names, index=selected_user_index)
+                user_id = user_ids[user_names.index(selected_user_name)]
+
+                # Select projet
+                projet_ids = list(projet_dict.keys())
+                projet_names = list(projet_dict.values())
+                selected_projet_index = projet_ids.index(default_projet_id) if default_projet_id in projet_ids else 0
+                selected_projet_name = st.selectbox("Projet", projet_names, index=selected_projet_index)
+                projet_id = projet_ids[projet_names.index(selected_projet_name)]
+
+                # Dates
+                date_debut = st.date_input("Date de début", value=default_date_debut)
+                date_fin = st.date_input("Date de fin", value=default_date_fin)
 
                 if selected_attrib_id is not None:
                     col_btn1, col_btn2 = st.columns([1, 5])
@@ -800,26 +850,25 @@ def show_admin():
                     submit_attrib = st.form_submit_button("Ajouter")
                     delete_attrib = False
 
+                # Ajout / Modification
                 if submit_attrib:
                     try:
                         conn = get_connection()
                         cursor = conn.cursor()
-                        user_id = user_dict[selected_user_name]
-                        projet_id = projet_dict[selected_projet_name]
 
                         if selected_attrib_id is None:
                             cursor.execute("""
-                                INSERT INTO attribution_projet (user_id, projet_id)
-                                VALUES (%s, %s)
+                                INSERT INTO attribution_projet (user_id, projet_id, date_debut, date_fin)
+                                VALUES (%s, %s, %s, %s)
                                 ON CONFLICT (user_id, projet_id) DO NOTHING
-                            """, (user_id, projet_id))
+                            """, (user_id, projet_id, date_debut, date_fin))
                             st.success("Attribution ajoutée avec succès.")
                         else:
                             cursor.execute("""
                                 UPDATE attribution_projet
-                                SET user_id = %s, projet_id = %s
+                                SET user_id = %s, projet_id = %s, date_debut = %s, date_fin = %s
                                 WHERE id = %s
-                            """, (user_id, projet_id, selected_attrib_id))
+                            """, (user_id, projet_id, date_debut, date_fin, selected_attrib_id))
                             st.success("Attribution modifiée avec succès.")
 
                         conn.commit()
@@ -829,6 +878,7 @@ def show_admin():
                         conn.close()
                     st.rerun()
 
+                # Suppression avec confirmation
                 if "confirm_delete_attrib" not in st.session_state:
                     st.session_state.confirm_delete_attrib = False
 
@@ -840,10 +890,7 @@ def show_admin():
                         try:
                             conn = get_connection()
                             cursor = conn.cursor()
-                            cursor.execute(
-                                "DELETE FROM attribution_projet WHERE id = %s",
-                                (selected_attrib_id,)
-                            )
+                            cursor.execute("DELETE FROM attribution_projet WHERE id = %s", (selected_attrib_id,))
                             conn.commit()
                             st.success("Attribution supprimée avec succès.")
                         except Exception as e:
@@ -852,6 +899,8 @@ def show_admin():
                             conn.close()
                         st.session_state.confirm_delete_attrib = False
                         st.rerun()
+
+
 
     #--------------------------------- Définition CP & RTT ----------------------------------
 
