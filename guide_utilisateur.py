@@ -108,13 +108,14 @@ def show_guide_utilisateur():
                 <div class="step"><div class="number-circle">6</div><div>Cliquer sur "Modifier la feuille" pour corriger les éventuelles erreurs.</div></div>
                 <div class="step"><div class="number-circle">7</div><div>Après soumission, attendre la validation par l’administrateur/RH.</div></div>
                 <h5 class="subtitle">III. Feuille de temps : Onglet Gestion de projets</h5>
-                <div class="step"><div class="number-circle">1</div><div>Dans la page, allez dans l'onglet "Gestion de projets".</div></div>
-                <div class="step"><div class="number-circle">2</div><div>Choisir le mois, remplir le tableau semaine par semaine.</div></div>
-                <div class="step"><div class="number-circle">3</div><div>Vérifier le total de l'heure par jour selon si vous avez indiquer 1 ou 0.5 dans le premier onglet.</div></div>
-                <div class="step"><div class="number-circle">4</div><div>Cliquer sur "Enregistrer".</div></div>
-                <div class="step"><div class="number-circle">5</div><div>Exporter le tableau en Excel via le bouton "Exporter".</div></div>
-                <div class="step"><div class="number-circle">6</div><div>Voir la répartition des heures sur chaque projet dans le graphique.</div></div>
-                <div class="step"><div class="number-circle">7</div><div>Onglet "Mes projets" : consulter la liste des projets affectés.</div></div>
+                <div class="step"><div class="number-circle">1</div><div>Complétez cet onglet quand votre feuille sera validée.</div></div>
+                <div class="step"><div class="number-circle">2</div><div>Dans la page, allez dans l'onglet "Gestion de projets".</div></div>
+                <div class="step"><div class="number-circle">3</div><div>Choisir le mois, remplir le tableau semaine par semaine.</div></div>
+                <div class="step"><div class="number-circle">4</div><div>Vérifier le total de l'heure par jour selon si vous avez indiquer 1 ou 0.5 dans le premier onglet.</div></div>
+                <div class="step"><div class="number-circle">5</div><div>Cliquer sur "Enregistrer".</div></div>
+                <div class="step"><div class="number-circle">6</div><div>Exporter le tableau en Excel via le bouton "Exporter".</div></div>
+                <div class="step"><div class="number-circle">7</div><div>Voir la répartition des heures sur chaque projet dans le graphique.</div></div>
+                <div class="step"><div class="number-circle">8</div><div>Onglet "Mes projets" : consulter la liste des projets affectés.</div></div>
                 <h5 class="subtitle">IV. Feuille de temps : Onglet Historique</h5>
                 <div class="step"><div class="number-circle">1</div><div>Voir toutes les demandes et feuilles soumises</div></div>
                 <div class="step"><div class="number-circle">2</div><div>Filtrer par année et statut</div></div>
