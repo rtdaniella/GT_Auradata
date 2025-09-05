@@ -311,7 +311,8 @@ def show_dashboard():
 
         df_abs = pd.DataFrame(abs_rows_expanded, columns=["user_id", "Utilisateur", "Statut", "Jours"])
 
-        previous_year = str(int(selected_year) - 1)
+        selected_year = int(selected_year)
+        previous_year = selected_year - 1
 
         # --- Feuille temps année précédente ---
         query_ft_prev = """
@@ -404,12 +405,11 @@ def show_dashboard():
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            total_hours = df_grouped["Heures"].sum() if not df_grouped.empty else 0
             st.markdown(f"""
                 <div class="kpi-card">
-                    <div class="kpi-value">{total_hours} h</div>
-                    <div class="kpi-subvalue">{selected_month_name} {previous_year} : {jours_travailles_prev} h</div>
-                    <div class="kpi-label">🕒 Heures totales travaillées</div>
+                    <div class="kpi-value">{jours_travailles} jours</div>
+                    <div class="kpi-subvalue">{selected_month_name} {previous_year} : {jours_travailles_prev} jours</div>
+                    <div class="kpi-label">📅 Jours travaillées</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -1362,33 +1362,30 @@ def show_dashboard():
                     st.markdown(html_table_zero, unsafe_allow_html=True)
                     st.caption(f"Page {page} / {total_pages}")
     
+
+
     #--------------------- Dashboard : projets -----------------------
     with tab3:
 
+        # Récupération des projets
         df_projets = pd.read_sql_query("SELECT id, nom, heures_prevues FROM projets ORDER BY nom", conn)
 
         projet_options = df_projets["nom"].tolist()
         projet_options.insert(0, "Tous") 
         selected_projet = st.selectbox("📁 Projet", projet_options)
 
-        if selected_projet == "Tous":
-            projet_filter = ""
-            heures_prevues_total = df_projets["heures_prevues"].sum()
-        else:
+        if selected_projet != "Tous":
             projet_id = df_projets[df_projets["nom"] == selected_projet]["id"].iloc[0]
-            projet_filter = f"AND h.projet_id = {projet_id}"
-            heures_prevues_total = df_projets[df_projets["id"] == projet_id]["heures_prevues"].iloc[0]
 
-        if selected_employee == "Tous":
-            employee_filter = ""
-        else:
+        # Filtre employé
+        if selected_employee != "Tous":
             employee_id = [uid for uid, name in employees if name == selected_employee][0]
-            employee_filter = f"AND h.user_id = {employee_id}"
 
         selected_month_index = mois_fr.index(selected_month_name)
-        selected_month_num = selected_month_index + 1 
+        selected_month_num = selected_month_index + 1
 
         #============================================================================================
+        # KPI : heures cumulées
         query_hours_cumule = """
             SELECT SUM(h.heures) as total_saisie
             FROM heures_saisie h
@@ -1406,15 +1403,24 @@ def show_dashboard():
         total_saisie_cumule = df_hours_cumule["total_saisie"].iloc[0] if not df_hours_cumule.empty else 0
         total_saisie_cumule = 0 if total_saisie_cumule is None else total_saisie_cumule
 
+        # KPI : heures du mois
+
         query_hours_month = """
-            SELECT SUM(h.heures) as total_saisie
+            SELECT SUM(h.heures) AS total_saisie
             FROM heures_saisie h
             JOIN roles r ON h.user_id = r.user_id
+            JOIN attribution_projet a ON a.projet_id = h.projet_id AND a.user_id = h.user_id
             WHERE EXTRACT(YEAR FROM h.date_jour) = %s
             AND EXTRACT(MONTH FROM h.date_jour) = %s
         """
-        params = [selected_year, selected_month_num]
 
+
+        # Appliquer filtre employé
+        if selected_employee != "Tous":
+            query_hours_month += " AND h.user_id = %s"
+            params.append(employee_id)
+
+        # Filtre rôle si nécessaire
         if selected_role != "Tous":
             query_hours_month += " AND r.role = %s"
             params.append(selected_role)
@@ -1423,12 +1429,20 @@ def show_dashboard():
         total_saisie_month = df_hours_month["total_saisie"].iloc[0] if not df_hours_month.empty else 0
         total_saisie_month = 0 if total_saisie_month is None else total_saisie_month
 
+
+        # Calcul des KPI
+        if selected_projet != "Tous":
+            heures_prevues_total = df_projets[df_projets["id"] == projet_id]["heures_prevues"].iloc[0]
+        else:
+            heures_prevues_total = df_projets["heures_prevues"].sum()
+
         pct_avancement = round(total_saisie_cumule / heures_prevues_total * 100, 1) if heures_prevues_total else 0
         ecart_pct = round((total_saisie_cumule - heures_prevues_total) / heures_prevues_total * 100, 1) if heures_prevues_total else 0
         pct_occupation = round(total_saisie_month / 160 * 100, 1)
 
+        #============================================================================================
+        # Affichage des KPI
         col1, col2, col3 = st.columns(3)
-
         with col1:
             st.markdown(f"""
                 <div class="kpi-card">
@@ -1437,7 +1451,6 @@ def show_dashboard():
                     <div class="kpi-label">📊 Avancement cumulé</div>
                 </div>
             """, unsafe_allow_html=True)
-
         with col2:
             st.markdown(f"""
                 <div class="kpi-card">
@@ -1446,7 +1459,6 @@ def show_dashboard():
                     <div class="kpi-label">⚖️ Écart cumulé</div>
                 </div>
             """, unsafe_allow_html=True)
-
         with col3:
             st.markdown(f"""
                 <div class="kpi-card">
@@ -1456,36 +1468,35 @@ def show_dashboard():
                 </div>
             """, unsafe_allow_html=True)
 
-        # Tableau de suivi des projets 
+        #============================================================================================
+        # Tableau de suivi des projets filtré par attribution
         params = [selected_year, selected_month_num]
 
-        query_projets = """
-            SELECT p.id, p.nom, p.heures_prevues, 
-                COALESCE(SUM(h.heures), 0) AS heures_reelles
+        employee_filter_sql = f"AND a.user_id = {employee_id}" if selected_employee != "Tous" else ""
+        projet_filter_sql = f"AND p.id = {projet_id}" if selected_projet != "Tous" else ""
+
+        query_projets = f"""
+            SELECT p.id, p.nom, p.heures_prevues,
+                COALESCE(SUM(h.heures),0) AS heures_reelles
             FROM projets p
-            LEFT JOIN heures_saisie h 
+            JOIN attribution_projet a 
+                ON a.projet_id = p.id
+                AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE)
+                {employee_filter_sql}
+            LEFT JOIN heures_saisie h
                 ON h.projet_id = p.id
+                AND h.user_id = a.user_id
                 AND EXTRACT(YEAR FROM h.date_jour) = %s
                 AND EXTRACT(MONTH FROM h.date_jour) <= %s
-            LEFT JOIN roles r 
-                ON h.user_id = r.user_id
-        """
-
-        if selected_role != "Tous":
-            query_projets += " AND r.role = %s"
-            params.append(selected_role)
-
-        query_projets += f"""
             WHERE 1=1
-            {projet_filter}
-            {employee_filter}
+            {projet_filter_sql}
             GROUP BY p.id, p.nom, p.heures_prevues
             ORDER BY p.nom
         """
 
         df_analyse = pd.read_sql_query(query_projets, conn, params=params)
 
-
+        # Calcul taux consommation et statut
         df_analyse["taux_conso"] = df_analyse.apply(
             lambda row: round(row["heures_reelles"] / row["heures_prevues"] * 100, 1) if row["heures_prevues"] else 0,
             axis=1
@@ -1503,31 +1514,24 @@ def show_dashboard():
 
         df_analyse["statut"] = df_analyse["taux_conso"].apply(definir_statut)
 
+        # fonction pour le style des cellules
         def style_cell_projet(val, col_type, show_days=False):
-            """
-            Génère le contenu HTML d'une cellule avec style + couleurs conditionnelles.
-            """
             if val is None or val == "":
                 return f'<td style="padding:8px; text-align:center;">-</td>'
-
             try:
-                if show_days:  # Colonnes heures
+                if show_days:
                     heures = float(val)
                     cell_text = f"{int(heures)} h ({heures/8:.2f} j)"
                     style = "padding:8px; text-align:center;"
-
-                elif col_type == "taux_conso":  # Taux consommation en %
+                elif col_type == "taux_conso":
                     taux = float(val)
-                    if taux <= 1:  # si les données sont sous forme fraction
+                    if taux <= 1:
                         taux *= 100
                     cell_text = f"{taux:.0f} %"
                     style = "padding:8px; text-align:center;"
-
-                elif col_type == "statut":  # Statut avec couleurs
+                elif col_type == "statut":
                     statut = str(val)
                     cell_text = statut
-
-                    # Choix du background en fonction du statut
                     if "⚪" in statut:
                         bg_color = "#d9d9d9"
                         txt_color = "black"
@@ -1543,27 +1547,18 @@ def show_dashboard():
                     else:
                         bg_color = "white"
                         txt_color = "black"
-
                     style = f"padding:8px; text-align:center; font-weight:bold; background-color:{bg_color}; color:{txt_color};"
-
-                else:  # Autres colonnes (valeurs brutes)
+                else:
                     cell_text = str(val)
                     style = "padding:8px; text-align:center;"
-
             except (ValueError, TypeError):
                 cell_text = str(val)
                 style = "padding:8px; text-align:center;"
-
             return f'<td style="{style}">{cell_text}</td>'
 
-
+        # Construction du tableau HTML
         html_table = '''
-        <table style="
-            border-collapse: collapse;
-            width: 100%;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-        ">
+        <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 14px;">
         '''
         html_table += '<tr style="position: sticky; top: 0; background-color:#000060; color:white; text-align:center;">'
         for col in ["Projet", "Heures prévues", "Heures saisies", "Taux consommation", "Statut"]:
@@ -1573,146 +1568,56 @@ def show_dashboard():
         for row_num, row in df_analyse.iterrows():
             bg_color = "#f9f9f9" if row_num % 2 == 0 else "#ffffff"
             html_table += f'<tr style="background-color:{bg_color};">'
-
-            # Nom du projet
             html_table += f'<td style="padding:8px; font-weight:bold;">{row["nom"]}</td>'
-
-            # Heures prévues avec conversion jours
             html_table += style_cell_projet(row["heures_prevues"], "heures_prevues", show_days=True)
-
-            # Heures saisies avec conversion jours
             html_table += style_cell_projet(row["heures_reelles"], "heures_reelles", show_days=True)
-
-            # Taux consommation (affiché en %)
             html_table += style_cell_projet(row["taux_conso"], "taux_conso")
-
-            # Statut
             html_table += style_cell_projet(row["statut"], "statut")
-
             html_table += '</tr>'
-
         html_table += '</table>'
 
-
-        st.markdown(f"""
-            <h4 style='
-                background-color: #d6dcf5;
-                padding: 10px 15px;
-                border-radius: 8px;
-                color: #000060;
-                font-weight: 600;
-                border-left: 6px solid #9aa7e5;
-                margin-bottom: 20px;
-            '>
-            Suivi des projets</h4>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<h4 style='background-color:#d6dcf5;padding:10px 15px;border-radius:8px;color:#000060;font-weight:600;border-left:6px solid #9aa7e5;margin-bottom:20px;'>Suivi des projets</h4>", unsafe_allow_html=True)
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # Répartition par projet et comparaison 
-        df_analyse_nonzero = df_analyse[df_analyse["heures_reelles"] > 0]
+        #============================================================================================
+        # Graphe des contributions par projet filtré sur attribution
+        st.markdown(f"<h4 style='background-color:#d6dcf5;padding:10px 15px;border-radius:8px;color:#000060;font-weight:600;border-left:6px solid #9aa7e5;margin-bottom:20px;'>Vision globale des contributions par projet</h4>", unsafe_allow_html=True)
+        params = [int(selected_year)]
+        project_filter_sql = f"AND h.projet_id = {projet_id}" if selected_projet != "Tous" else ""
 
-        if not df_analyse_nonzero.empty:
-            fig_repartition = px.pie(
-                df_analyse_nonzero,
-                values="heures_reelles",
-                names="nom",
-                hole=0.4
-            )
-            fig_repartition.update_traces(textinfo="percent+label")
-
-            df_compare = df_analyse.melt(
-                id_vars="nom",
-                value_vars=["heures_prevues", "heures_reelles"],
-                var_name="Type",
-                value_name="Heures"
-            )
-            fig_bar = px.bar(
-                df_compare,
-                x="nom",
-                y="Heures",
-                color="Type",
-                barmode="group"
-            )
-            fig_bar.update_xaxes(title="Projets")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"""
-                    <h4 style='
-                        background-color: #d6dcf5;
-                        padding: 10px 15px;
-                        border-radius: 8px;
-                        color: #000060;
-                        font-weight: 600;
-                        border-left: 6px solid #9aa7e5;
-                        margin-bottom: 20px;
-                    '>
-                    Répartition des heures par projet - {selected_month_name} {selected_year}</h4>
-                """, unsafe_allow_html=True)
-                st.plotly_chart(fig_repartition, use_container_width=True)
-            with col2:
-                st.markdown(f"""
-                    <h4 style='
-                        background-color: #d6dcf5;
-                        padding: 10px 15px;
-                        border-radius: 8px;
-                        color: #000060;
-                        font-weight: 600;
-                        border-left: 6px solid #9aa7e5;
-                        margin-bottom: 20px;
-                    '>
-                    Comparaison des heures par projet - {selected_month_name} {selected_year}</h4>
-                """, unsafe_allow_html=True)
-                st.plotly_chart(fig_bar, use_container_width=True)
-
-        else:
-            st.info("Aucune donnée disponible pour le filtre sélectionné.")
-
-        # Analyse des contributions 
-        st.markdown(f"""
-            <h4 style='
-                background-color: #d6dcf5;
-                padding: 10px 15px;
-                border-radius: 8px;
-                color: #000060;
-                font-weight: 600;
-                border-left: 6px solid #9aa7e5;
-                margin-bottom: 20px;
-            '>
-            Vue détaillée des contributions par projet</h4>
-        """, unsafe_allow_html=True)
-
-        projet_filter_evol = projet_filter
-        employee_filter_evol = employee_filter
-        role_filter_evol = f"AND r.role = '{selected_role}'" if selected_role != "Tous" else ""
-
-        params = [selected_year]
         query_evolution = f"""
             SELECT h.user_id, u.name AS employe,
                 EXTRACT(MONTH FROM h.date_jour) AS mois,
                 SUM(h.heures) AS total_heures
             FROM heures_saisie h
             JOIN users u ON h.user_id = u.id
-            LEFT JOIN roles r ON h.user_id = r.user_id
-            WHERE EXTRACT(YEAR FROM h.date_jour) = {selected_year}
-            {projet_filter_evol}
-            {employee_filter_evol}
-            {role_filter_evol}
-            GROUP BY h.user_id, mois, u.name
-            ORDER BY h.user_id, mois
+            JOIN attribution_projet a 
+                ON a.projet_id = h.projet_id
+                AND a.user_id = h.user_id
+                AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE)
+            WHERE EXTRACT(YEAR FROM h.date_jour) = %s
+            {project_filter_sql}
         """
 
-        df_evolution = pd.read_sql_query(query_evolution, conn, params=params)
+        if selected_employee != "Tous":
+            query_evolution += f" AND h.user_id = {employee_id}"
 
+        query_evolution += " GROUP BY h.user_id, mois, u.name ORDER BY h.user_id, mois"
+        df_evolution = pd.read_sql_query(query_evolution, conn, params=params)
 
         if not df_evolution.empty:
             df_evolution["mois"] = df_evolution["mois"].astype(int)
             df_pivot = df_evolution.pivot(index="mois", columns="employe", values="total_heures").fillna(0)
 
+            # s'assurer que tous les mois sont présents
             for m in range(1, 13):
                 if m not in df_pivot.index:
                     df_pivot.loc[m] = [0] * df_pivot.shape[1]
             df_pivot = df_pivot.sort_index()
+
+            # supprimer les colonnes des employés qui n'ont jamais travaillé sur ce projet
+            if selected_projet != "Tous":
+                df_pivot = df_pivot.loc[:, (df_pivot.sum(axis=0) > 0)]
 
             projet_affiche = selected_projet if selected_projet != "Tous" else "Tous les projets"
 
@@ -1732,7 +1637,7 @@ def show_dashboard():
             fig_evolution.update_layout(
                 title=dict(
                     text=f"Projet : {projet_affiche}",
-                    x=0.05, 
+                    x=0.05,
                     xanchor='left',
                     font=dict(size=16, color="#000060", family="Arial, sans-serif")
                 ),
@@ -1742,6 +1647,8 @@ def show_dashboard():
             st.plotly_chart(fig_evolution, use_container_width=True)
         else:
             st.info("Aucune donnée disponible pour le filtre sélectionné.")
+
+
 
     # Onglet prévisions à impléménter
     with tab4:

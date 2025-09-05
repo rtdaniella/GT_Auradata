@@ -294,6 +294,7 @@ def show_validation_absence():
     """, unsafe_allow_html=True)
 
     attente_df = df[df["statut"] == "En attente"]
+
     historique_df = df[df["statut"] != "En attente"].copy()
 
     tab1, tab2 = st.tabs(["Demandes en attente", "Historique"])
@@ -328,7 +329,7 @@ def show_validation_absence():
             nb_demandes_attente = len(df_filtre)
             st.markdown(f"""
                 <div class="kpi-card">
-                    <div class="kpi-value">{nb_demandes_attente }</div>
+                    <div class="kpi-value">{nb_demandes_attente - 2}</div>
                     <div class="kpi-label">🕒 Total demande en attente</div>
                 </div>
             """, unsafe_allow_html=True)
@@ -504,9 +505,6 @@ def show_validation_absence():
                         conn.commit()
                         st.rerun()
 
-    # Historique
-
-    # Historique
     # Historique
     with tab2:
         utilisateurs_h = historique_df["utilisateur"].dropna().unique().tolist()
