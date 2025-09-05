@@ -1,10 +1,18 @@
 [server]
-fileWatcherType = "auto"
 runOnSave = true
 fileWatcherType = "none"
-
+enableXsrfProtection = true
 
 [theme]
 base="light"
 primaryColor="#000060"
 secondaryBackgroundColor= "#ffffff"
+
+[client]
+showErrorDetails = false
+
+[runner]
+fastReruns = true
+
+[browser]
+gatherUsageStats = true
