@@ -453,6 +453,7 @@ def show_dashboard():
             """, unsafe_allow_html=True)
 
             if not df_grouped.empty:
+                df_grouped = df_grouped.sort_values(by="Heures", ascending=False)
                 fig = px.bar(
                     df_grouped,
                     x="Utilisateur",
