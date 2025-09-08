@@ -1300,7 +1300,7 @@ def show_dashboard():
                     '>
                     Employés avec 0 absences ({selected_month_name} {selected_year})</h4>
                 """, unsafe_allow_html=True)
-                #
+                
                 query_zero_abs = """
                     SELECT u.name, COALESCE(r.role, 'N/A') as role
                     FROM users u
@@ -1361,8 +1361,6 @@ def show_dashboard():
 
                     st.markdown(html_table_zero, unsafe_allow_html=True)
                     st.caption(f"Page {page} / {total_pages}")
-    
-
 
     #--------------------- Dashboard : projets -----------------------
     with tab3:
@@ -1385,26 +1383,50 @@ def show_dashboard():
         selected_month_num = selected_month_index + 1
 
         #============================================================================================
-        # KPI : heures cumulées
+        params_cumule = [int(selected_year), int(selected_month_num)]
+
         query_hours_cumule = """
-            SELECT SUM(h.heures) as total_saisie
-            FROM heures_saisie h
-            JOIN roles r ON h.user_id = r.user_id
-            WHERE EXTRACT(YEAR FROM h.date_jour) = %s
+        SELECT COALESCE(SUM(h.heures),0) AS total_saisie
+        FROM projets p
+        JOIN attribution_projet a
+            ON a.projet_id = p.id
+            AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE)
+        LEFT JOIN heures_saisie h
+            ON h.projet_id = p.id
+            AND h.user_id = a.user_id
+            AND EXTRACT(YEAR FROM h.date_jour) = %s
             AND EXTRACT(MONTH FROM h.date_jour) <= %s
+        WHERE 1=1
         """
-        params = [selected_year, selected_month_num]
+        params_cumule = [int(selected_year), int(selected_month_num)]
+
+        if selected_projet != "Tous":
+            query_hours_cumule += " AND p.id = %s"
+            params_cumule.append(int(projet_id))
+
+        if selected_employee != "Tous":
+            query_hours_cumule += " AND a.user_id = %s"
+            params_cumule.append(int(employee_id))
 
         if selected_role != "Tous":
-            query_hours_cumule += " AND r.role = %s"
-            params.append(selected_role)
+            query_hours_cumule += " AND EXISTS (SELECT 1 FROM roles r WHERE r.user_id = a.user_id AND r.role = %s)"
+            params_cumule.append(selected_role)
 
-        df_hours_cumule = pd.read_sql_query(query_hours_cumule, conn, params=params)
+
+        df_hours_cumule = pd.read_sql_query(query_hours_cumule, conn, params=params_cumule)
         total_saisie_cumule = df_hours_cumule["total_saisie"].iloc[0] if not df_hours_cumule.empty else 0
-        total_saisie_cumule = 0 if total_saisie_cumule is None else total_saisie_cumule
 
+        # Heures prévues pour le KPI
+        if selected_projet != "Tous":
+            heures_prevues_total = df_projets[df_projets["id"] == projet_id]["heures_prevues"].iloc[0]
+        else:
+            heures_prevues_total = df_projets["heures_prevues"].sum()
+
+        pct_avancement = round(total_saisie_cumule / heures_prevues_total * 100, 1) if heures_prevues_total else 0
+        ecart_pct = round((total_saisie_cumule - heures_prevues_total) / heures_prevues_total * 100, 1) if heures_prevues_total else 0
+
+        #============================================================================================
         # KPI : heures du mois
-
         query_hours_month = """
             SELECT SUM(h.heures) AS total_saisie
             FROM heures_saisie h
@@ -1413,31 +1435,18 @@ def show_dashboard():
             WHERE EXTRACT(YEAR FROM h.date_jour) = %s
             AND EXTRACT(MONTH FROM h.date_jour) = %s
         """
+        params_month = [selected_year, selected_month_num]
 
-
-        # Appliquer filtre employé
         if selected_employee != "Tous":
             query_hours_month += " AND h.user_id = %s"
-            params.append(employee_id)
-
-        # Filtre rôle si nécessaire
+            params_month.append(employee_id)
         if selected_role != "Tous":
             query_hours_month += " AND r.role = %s"
-            params.append(selected_role)
+            params_month.append(selected_role)
 
-        df_hours_month = pd.read_sql_query(query_hours_month, conn, params=params)
+        df_hours_month = pd.read_sql_query(query_hours_month, conn, params=params_month)
         total_saisie_month = df_hours_month["total_saisie"].iloc[0] if not df_hours_month.empty else 0
         total_saisie_month = 0 if total_saisie_month is None else total_saisie_month
-
-
-        # Calcul des KPI
-        if selected_projet != "Tous":
-            heures_prevues_total = df_projets[df_projets["id"] == projet_id]["heures_prevues"].iloc[0]
-        else:
-            heures_prevues_total = df_projets["heures_prevues"].sum()
-
-        pct_avancement = round(total_saisie_cumule / heures_prevues_total * 100, 1) if heures_prevues_total else 0
-        ecart_pct = round((total_saisie_cumule - heures_prevues_total) / heures_prevues_total * 100, 1) if heures_prevues_total else 0
         pct_occupation = round(total_saisie_month / 160 * 100, 1)
 
         #============================================================================================
@@ -1448,7 +1457,7 @@ def show_dashboard():
                 <div class="kpi-card">
                     <div class="kpi-value">{pct_avancement}%</div>
                     <div class="kpi-subvalue">{total_saisie_cumule}h / {heures_prevues_total}h prévues</div>
-                    <div class="kpi-label">📊 Avancement cumulé</div>
+                    <div class="kpi-label">📈 Avancement cumulé</div>
                 </div>
             """, unsafe_allow_html=True)
         with col2:
@@ -1456,7 +1465,7 @@ def show_dashboard():
                 <div class="kpi-card">
                     <div class="kpi-value">{ecart_pct}%</div>
                     <div class="kpi-subvalue">{total_saisie_cumule - heures_prevues_total} h</div>
-                    <div class="kpi-label">⚖️ Écart cumulé</div>
+                    <div class="kpi-label">📉 Écart cumulé</div>
                 </div>
             """, unsafe_allow_html=True)
         with col3:
@@ -1464,16 +1473,17 @@ def show_dashboard():
                 <div class="kpi-card">
                     <div class="kpi-value">{pct_occupation}%</div>
                     <div class="kpi-subvalue">{total_saisie_month} h / 160 h</div>
-                    <div class="kpi-label">🕒 % Occupation mois</div>
+                    <div class="kpi-label">🔋 % Occupation mois</div>
                 </div>
             """, unsafe_allow_html=True)
 
         #============================================================================================
         # Tableau de suivi des projets filtré par attribution
-        params = [selected_year, selected_month_num]
+        params_projets = [selected_year, selected_month_num]
 
         employee_filter_sql = f"AND a.user_id = {employee_id}" if selected_employee != "Tous" else ""
         projet_filter_sql = f"AND p.id = {projet_id}" if selected_projet != "Tous" else ""
+        role_filter_sql = f"AND EXISTS (SELECT 1 FROM roles r WHERE r.user_id = a.user_id AND r.role = '{selected_role}')" if selected_role != "Tous" else ""
 
         query_projets = f"""
             SELECT p.id, p.nom, p.heures_prevues,
@@ -1483,6 +1493,7 @@ def show_dashboard():
                 ON a.projet_id = p.id
                 AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE)
                 {employee_filter_sql}
+                {role_filter_sql}
             LEFT JOIN heures_saisie h
                 ON h.projet_id = p.id
                 AND h.user_id = a.user_id
@@ -1494,7 +1505,7 @@ def show_dashboard():
             ORDER BY p.nom
         """
 
-        df_analyse = pd.read_sql_query(query_projets, conn, params=params)
+        df_analyse = pd.read_sql_query(query_projets, conn, params=params_projets)
 
         # Calcul taux consommation et statut
         df_analyse["taux_conso"] = df_analyse.apply(
@@ -1514,6 +1525,7 @@ def show_dashboard():
 
         df_analyse["statut"] = df_analyse["taux_conso"].apply(definir_statut)
 
+        #============================================================================================
         # fonction pour le style des cellules
         def style_cell_projet(val, col_type, show_days=False):
             if val is None or val == "":
@@ -1556,6 +1568,7 @@ def show_dashboard():
                 style = "padding:8px; text-align:center;"
             return f'<td style="{style}">{cell_text}</td>'
 
+        #============================================================================================
         # Construction du tableau HTML
         html_table = '''
         <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 14px;">
@@ -1584,6 +1597,8 @@ def show_dashboard():
         st.markdown(f"<h4 style='background-color:#d6dcf5;padding:10px 15px;border-radius:8px;color:#000060;font-weight:600;border-left:6px solid #9aa7e5;margin-bottom:20px;'>Vision globale des contributions par projet</h4>", unsafe_allow_html=True)
         params = [int(selected_year)]
         project_filter_sql = f"AND h.projet_id = {projet_id}" if selected_projet != "Tous" else ""
+        role_filter_sql = f"AND EXISTS (SELECT 1 FROM roles r WHERE r.user_id = h.user_id AND r.role = '{selected_role}')" if selected_role != "Tous" else ""
+
 
         query_evolution = f"""
             SELECT h.user_id, u.name AS employe,
@@ -1597,6 +1612,7 @@ def show_dashboard():
                 AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE)
             WHERE EXTRACT(YEAR FROM h.date_jour) = %s
             {project_filter_sql}
+            {role_filter_sql}
         """
 
         if selected_employee != "Tous":
@@ -1647,7 +1663,6 @@ def show_dashboard():
             st.plotly_chart(fig_evolution, use_container_width=True)
         else:
             st.info("Aucune donnée disponible pour le filtre sélectionné.")
-
 
 
     # Onglet prévisions à impléménter
