@@ -993,15 +993,10 @@ def show_feuille_temps():
             """
             df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(user_id,))
             conn.close()
-
-            # Conversion date_fin
+            
             df_projets_user['date_fin'] = pd.to_datetime(df_projets_user['date_fin']).dt.date
-
-            # Filtre : ne garder que celles dont date_fin est vide ou >= aujourd'hui
-            today = date.today()  # <- utilise date.today() directement
+            today = datetime.today()
             df_projets_user = df_projets_user[(df_projets_user['date_fin'].isna()) | (df_projets_user['date_fin'] >= today)]
-
-            # Supprimer date_fin pour l'affichage si tu veux
             df_projets_user = df_projets_user.drop(columns=['date_fin'])
 
         except Exception as e:
