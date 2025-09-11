@@ -131,7 +131,6 @@ def show_admin():
         }
 
         table {
-            width: 100%;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 14px;
             color: #222;
@@ -238,7 +237,11 @@ def show_admin():
 
             users_list_container = st.empty()
             users_list_container.markdown(
-                paginated_df.drop(columns=["id", "is_active", "activated_once"]).to_html(index=False, escape=False),
+                f"""
+                <div style="overflow-x:auto; width:100%;">
+                    {paginated_df.drop(columns=['id', 'is_active', 'activated_once']).to_html(index=False, escape=False)}
+                </div>
+                """,
                 unsafe_allow_html=True
             )
 

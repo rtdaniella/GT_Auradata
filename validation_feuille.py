@@ -465,7 +465,7 @@ def show_validation_feuille():
                     afficher_recap_validation(ligne2, cols2, abs_dict, feries_dict, df)
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                    col_val, col_rej, _ = st.columns([1.5,2,12])
+                    col_val, col_rej, _ = st.columns([2,2,12])
                     with col_val:
                         if st.button("Valider", key=f"valider_{user_id}_{annee}_{mois}"):
                             # Mettre à jour le statut dans la DB

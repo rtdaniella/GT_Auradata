@@ -359,9 +359,9 @@ def show_validation_absence():
 
                     cols_btn = st.columns(3)
                     with cols_btn[0]:
-                        valider = st.button("Valider", key=f"valider_{row['id']}")
+                        valider = st.button("✅", key=f"valider_{row['id']}")
                     with cols_btn[1]:
-                        rejeter = st.button("Rejeter", key=f"rejeter_{row['id']}")
+                        rejeter = st.button("❌", key=f"rejeter_{row['id']}")
 
                     rejeter_mode_key = f"rejeter_mode_{row['id']}"
                     if rejeter_mode_key not in st.session_state:
@@ -465,9 +465,9 @@ def show_validation_absence():
 
                     cols_btn = st.columns(3)
                     with cols_btn[0]:
-                        valider = st.button("Valider", key=f"valider_{row['id']}")
+                        valider = st.button("✅", key=f"valider_{row['id']}")
                     with cols_btn[1]:
-                        rejeter = st.button("Rejeter", key=f"rejeter_{row['id']}")
+                        rejeter = st.button("❌", key=f"rejeter_{row['id']}")
 
                     rejeter_mode_key = f"rejeter_mode_{row['id']}"
                     if rejeter_mode_key not in st.session_state:
