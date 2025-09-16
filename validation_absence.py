@@ -329,7 +329,7 @@ def show_validation_absence():
             nb_demandes_attente = len(df_filtre)
             st.markdown(f"""
                 <div class="kpi-card">
-                    <div class="kpi-value">{nb_demandes_attente - 2}</div>
+                    <div class="kpi-value">{nb_demandes_attente}</div>
                     <div class="kpi-label">🕒 Total demande en attente</div>
                 </div>
             """, unsafe_allow_html=True)
