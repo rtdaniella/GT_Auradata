@@ -995,7 +995,7 @@ def show_feuille_temps():
             conn.close()
             
             df_projets_user['date_fin'] = pd.to_datetime(df_projets_user['date_fin']).dt.date
-            today = datetime.today().date()
+            today = datetime.today()
             df_projets_user = df_projets_user[(df_projets_user['date_fin'].isna()) | (df_projets_user['date_fin'] >= today)]
             df_projets_user = df_projets_user.drop(columns=['date_fin'])
 
