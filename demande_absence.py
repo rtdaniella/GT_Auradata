@@ -270,8 +270,9 @@ def show_demande_absence():
     """, unsafe_allow_html=True)
 
     current_year = date.today().year
-    annee_options = list(range(current_year, 2022, -1))
+    current_month = date.today().month 
 
+    annee_options = list(range(current_year, 2022, -1))
     mois_options = list(range(1, 13))
 
     df_type_abs = pd.read_sql_query(
@@ -286,7 +287,12 @@ def show_demande_absence():
     with col1:
         annee_filtre = st.selectbox("📅 Année", options=annee_options, index=0)
     with col2:
-        mois_filtre = st.selectbox("📅 Mois", options=mois_options, format_func=lambda x: pd.to_datetime(x, format='%m').strftime('%B'))
+        mois_filtre = st.selectbox(
+        "📅 Mois",
+        options=mois_options,
+        index=current_month - 1,  # index de 0 à 11
+        format_func=lambda x: pd.to_datetime(x, format='%m').strftime('%B')
+    )
     with col3:
         type_filtre = st.selectbox("🏷️ Type d'absence", options=type_options)
 
