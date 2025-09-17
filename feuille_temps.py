@@ -308,57 +308,57 @@ def show_feuille_temps():
                 </div>
             """, unsafe_allow_html=True)
 
-            if statut_feuille == 'validée' and (not df_feuille.empty or st.session_state.get("mode_modification", False)):
-                    export_dict = {}
-                    total_heures = 0
-                    for jour in jours_mois:
-                        if jour.month != mois:
-                            continue
-                        jour_label = jour.strftime("%d/%m")
-                        if jour in abs_dict:
-                            export_dict[jour_label] = abs_dict[jour]
-                        elif jour in feries_dict:
-                            export_dict[jour_label] = feries_dict[jour]
-                        elif jour.weekday() >= 5:
-                            export_dict[jour_label] = "Weekend"
-                        else:
-                            if st.session_state.get("mode_modification", False):
-                                val = valeurs_saisies.get(jour, None)
-                            else:
-                                val = df_feuille.loc[jour]["valeur"] if jour in df_feuille.index else None
+            # if statut_feuille == 'validée' and (not df_feuille.empty or st.session_state.get("mode_modification", False)):
+            #         export_dict = {}
+            #         total_heures = 0
+            #         for jour in jours_mois:
+            #             if jour.month != mois:
+            #                 continue
+            #             jour_label = jour.strftime("%d/%m")
+            #             if jour in abs_dict:
+            #                 export_dict[jour_label] = abs_dict[jour]
+            #             elif jour in feries_dict:
+            #                 export_dict[jour_label] = feries_dict[jour]
+            #             elif jour.weekday() >= 5:
+            #                 export_dict[jour_label] = "Weekend"
+            #             else:
+            #                 if st.session_state.get("mode_modification", False):
+            #                     val = valeurs_saisies.get(jour, None)
+            #                 else:
+            #                     val = df_feuille.loc[jour]["valeur"] if jour in df_feuille.index else None
 
-                            if val is not None:
-                                if val == 1:
-                                    heures = 8
-                                elif val == 0.5:
-                                    heures = 3
-                                else:
-                                    heures = 0  # ou tu peux mettre None si tu veux ignorer
-                                total_heures += heures
-                                export_dict[jour_label] = f"{val} jour ({heures}h)" if heures > 0 else "Non saisi"
-                            else:
-                                export_dict[jour_label] = "Non saisi"
+            #                 if val is not None:
+            #                     if val == 1:
+            #                         heures = 8
+            #                     elif val == 0.5:
+            #                         heures = 3
+            #                     else:
+            #                         heures = 0  # ou tu peux mettre None si tu veux ignorer
+            #                     total_heures += heures
+            #                     export_dict[jour_label] = f"{val} jour ({heures}h)" if heures > 0 else "Non saisi"
+            #                 else:
+            #                     export_dict[jour_label] = "Non saisi"
 
-                    export_dict["🕒 Total heures"] = f"{total_heures} h"
-                    df_export = pd.DataFrame([export_dict])
+            #         export_dict["🕒 Total heures"] = f"{total_heures} h"
+            #         df_export = pd.DataFrame([export_dict])
 
-                    output = BytesIO()
-                    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                        df_export.to_excel(writer, sheet_name=f"{mois_selectionne}_{annee}", index=False)
-                        workbook = writer.book
-                        worksheet = writer.sheets[f"{mois_selectionne}_{annee}"]
-                        for col_num, _ in enumerate(df_export.columns):
-                            worksheet.set_column(col_num, col_num, 18)
+            #         output = BytesIO()
+            #         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+            #             df_export.to_excel(writer, sheet_name=f"{mois_selectionne}_{annee}", index=False)
+            #             workbook = writer.book
+            #             worksheet = writer.sheets[f"{mois_selectionne}_{annee}"]
+            #             for col_num, _ in enumerate(df_export.columns):
+            #                 worksheet.set_column(col_num, col_num, 18)
 
-                    st.download_button(
-                        label="📥 Télécharger en Excel",
-                        data=output.getvalue(),
-                        file_name=f"feuille_temps_{mois_selectionne.lower()}_{annee}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-            else:
-                    st.markdown("<div style='font-size:13px; color:#666; text-align:center;'>Export disponible après validation</div>", unsafe_allow_html=True)
+            #         st.download_button(
+            #             label="📥 Télécharger en Excel",
+            #             data=output.getvalue(),
+            #             file_name=f"feuille_temps_{mois_selectionne.lower()}_{annee}.xlsx",
+            #             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            #             use_container_width=True
+            #         )
+            # else:
+            #         st.markdown("<div style='font-size:13px; color:#666; text-align:center;'>Export disponible après validation</div>", unsafe_allow_html=True)
 
         with col_heures:
             if "mode_modification" not in st.session_state:
@@ -994,19 +994,18 @@ def show_feuille_temps():
             df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(user_id,))
             conn.close()
             
-            # Conversion en datetime → puis en date (si valeur vide = NaT)
-            df_projets_user['date_fin'] = pd.to_datetime(
-                df_projets_user['date_fin'], errors='coerce'
-            ).dt.date
+            # Conversion en datetime64[ns], NaT si vide
+            df_projets_user['date_fin'] = pd.to_datetime(df_projets_user['date_fin'], errors='coerce')
 
-            # Aujourd’hui en date (pas datetime)
-            today = datetime.today().date()
+            # Aujourd'hui en datetime (minuit)
+            today = pd.Timestamp.today().normalize()
 
-            # Garder uniquement : (pas de date de fin) OU (date >= aujourd’hui)
-            mask = df_projets_user['date_fin'].isna() | (df_projets_user['date_fin'] >= today)
-            df_projets_user = df_projets_user[mask]
+            # Filtrer : garder si pas de date OU date >= aujourd'hui
+            df_projets_user = df_projets_user[
+                df_projets_user['date_fin'].isna() | (df_projets_user['date_fin'] >= today)
+            ]
 
-            # On supprime la colonne si tu n’en as plus besoin
+            # Supprimer la colonne si besoin
             df_projets_user = df_projets_user.drop(columns=['date_fin'])
 
         except Exception as e:

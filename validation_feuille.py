@@ -9,6 +9,7 @@ import io
 import smtplib
 from email.message import EmailMessage
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
+from io import BytesIO
 
 st.set_page_config(page_title="Validation des feuilles", layout="wide")
 
@@ -100,8 +101,21 @@ def show_validation_feuille():
                 border-radius: 5px;
                 font-size: 16px;
             }
+                
+            .stDownloadButton > button {
+                background-color: #080686 !important;
+                color: white !important;
+                border-radius: 5px;
+                font-size: 16px;
+            }
 
             .stButton>button:hover {
+                background-color: white !important;
+                color: #080686 !important;
+                border: 1px solid #080686 !important;
+            }
+                
+            .stDownloadButton>button:hover {
                 background-color: white !important;
                 color: #080686 !important;
                 border: 1px solid #080686 !important;
@@ -663,6 +677,7 @@ def show_validation_feuille():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
+
     # Validation heures par utilisateur
     with tab2:
         st.markdown("""
@@ -689,11 +704,45 @@ def show_validation_feuille():
             st.stop()
 
         # Filtre utilisateur
-        col_user, col_year, col_month = st.columns(3)
+        col_user, col_project, col_year, col_month = st.columns(4)
         with col_user:
             user_options = df_users.set_index('id')['nom_user'].to_dict()
             selected_user_id = st.selectbox("🧑‍💼 Utilisateur", options=list(user_options.keys()), format_func=lambda x: user_options[x])
 
+        # Projets utilisateur
+        try:
+            conn = get_connection()
+            query_projets_user = """
+                SELECT p.id, p.nom AS Projet, ap.date_fin
+                FROM projets p
+                INNER JOIN attribution_projet ap ON ap.projet_id = p.id
+                WHERE ap.user_id = %s
+                ORDER BY p.nom
+            """
+            df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(selected_user_id,))
+            #st.write(df_projets_user.columns)
+            conn.close()
+
+            df_projets_user['date_fin'] = pd.to_datetime(df_projets_user['date_fin'], errors='coerce')
+            today = pd.Timestamp.today().normalize()
+            df_projets_user = df_projets_user[df_projets_user['date_fin'].isna() | (df_projets_user['date_fin'] >= today)]
+            df_projets_user = df_projets_user.drop(columns=['date_fin'])
+        except Exception as e:
+            st.error(f"Erreur lors du chargement des projets : {e}")
+            st.stop()
+
+        # Filtre projet
+        with col_project:
+            project_options = df_projets_user.set_index('id')['projet'].to_dict()
+            project_options_with_all = {'all': 'Tous les projets'}
+            project_options_with_all.update(project_options)
+            selected_projects = st.selectbox(
+                "📂 Projet",
+                options=list(project_options_with_all.keys()),
+                format_func=lambda x: project_options_with_all[x]
+            )
+
+        # Filtre année et mois
         with col_year:
             current_year = datetime.now().year
             years = list(range(current_year - 2, current_year + 3))
@@ -715,10 +764,7 @@ def show_validation_feuille():
                 FROM feuille_temps_statut
                 WHERE user_id = %s AND annee = %s AND mois = %s
             """
-            statut_df = pd.read_sql_query(
-                query_statut, conn,
-                params=(selected_user_id, selected_year, month_num)
-            )
+            statut_df = pd.read_sql_query(query_statut, conn, params=(selected_user_id, selected_year, month_num))
             conn.close()
 
             if statut_df.empty or statut_df.iloc[0]['statut'] != 'validée':
@@ -732,10 +778,7 @@ def show_validation_feuille():
                         FROM feuille_temps
                         WHERE user_id = %s AND date BETWEEN %s AND %s
                     """
-                    df_feuille = pd.read_sql_query(
-                        query_jours, conn,
-                        params=(selected_user_id, date_start.strftime('%Y-%m-%d'), date_end.strftime('%Y-%m-%d'))
-                    )
+                    df_feuille = pd.read_sql_query(query_jours, conn, params=(selected_user_id, date_start, date_end))
                     conn.close()
                 except Exception as e:
                     st.error(f"Erreur lors du chargement de la feuille validée : {e}")
@@ -765,17 +808,13 @@ def show_validation_feuille():
                 FROM heures_saisie
                 WHERE user_id = %s AND date_jour BETWEEN %s AND %s
             """
-            df_heures = pd.read_sql_query(
-                query_heures, conn,
-                params=(selected_user_id, start_week_date.strftime('%Y-%m-%d'), end_week_date.strftime('%Y-%m-%d'))
-            )
-
+            df_heures = pd.read_sql_query(query_heures, conn, params=(selected_user_id, start_week_date, end_week_date))
             conn.close()
         except Exception as e:
             st.error(f"Erreur lors du chargement des heures saisies : {e}")
             df_heures = pd.DataFrame()
 
-        # Conversion dates
+        # Conversion dates et nettoyage
         if not df_heures.empty:
             df_heures['date_jour'] = pd.to_datetime(df_heures['date_jour']).dt.strftime('%Y-%m-%d')
         if not df_feuille.empty:
@@ -787,32 +826,15 @@ def show_validation_feuille():
         df_heures = df_heures.dropna(subset=['projet_id'])
         df_heures['projet_id'] = df_heures['projet_id'].astype(int)
 
-        # Projets utilisateur
-        try:
-            conn = get_connection()
-            query_projets_user = """
-                SELECT p.id, p.nom AS Projet, ap.date_fin
-                FROM projets p
-                INNER JOIN attribution_projet ap ON ap.projet_id = p.id
-                WHERE ap.user_id = %s
-                ORDER BY p.nom
-            """
-            df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(selected_user_id,))
-            conn.close()
-            # Conversion date_fin en date
-            df_projets_user['date_fin'] = pd.to_datetime(df_projets_user['date_fin']).dt.date
+        # Filtrer projets selon sélection
+        # Filtrer projets selon sélection
+        if selected_projects == 'all':
+            df_projets_user_filtered = df_projets_user.copy()
+        else:
+            df_projets_user_filtered = df_projets_user[df_projets_user['id'].isin([selected_projects])]
 
-            # Filtrer projets expirés
-            today = date.today()
-            df_projets_user = df_projets_user[(df_projets_user['date_fin'].isna()) | (df_projets_user['date_fin'] >= today)]
 
-            # Supprimer date_fin pour AgGrid si inutile
-            df_projets_user = df_projets_user.drop(columns=['date_fin'])
-        except Exception as e:
-            st.error(f"Erreur lors du chargement des projets : {e}")
-            st.stop()
-
-        # Absences approuvées
+        # --- Absences approuvées ---
         try:
             conn = get_connection()
             query_abs_user = """
@@ -821,10 +843,8 @@ def show_validation_feuille():
                 WHERE user_id = %s AND statut = 'Approuvée'
                 AND date_fin >= %s AND date_debut <= %s
             """
-            df_abs_user = pd.read_sql_query(
-                query_abs_user, conn,
-                params=(selected_user_id, start_week_date.strftime('%Y-%m-%d'), end_week_date.strftime('%Y-%m-%d'))
-            )
+            df_abs_user = pd.read_sql_query(query_abs_user, conn,
+                                            params=(selected_user_id, start_week_date, end_week_date))
             conn.close()
 
             if not df_abs_user.empty:
@@ -853,11 +873,12 @@ def show_validation_feuille():
 
         # Jours fériés
         fr_holidays = holidays.France(years=selected_year)
-        jours_feries_set = {d.strftime('%Y-%m-%d') for d in pd.to_datetime(list(fr_holidays.keys())) if start_week_date <= d.date() <= end_week_date}
+        jours_feries_set = {d.strftime('%Y-%m-%d') for d in pd.to_datetime(list(fr_holidays.keys()))
+                            if start_week_date <= d.date() <= end_week_date}
 
         # Construction des lignes projets
         data = []
-        for _, proj in df_projets_user.iterrows():
+        for _, proj in df_projets_user_filtered.iterrows():
             row = {"projet_id": proj["id"], "Projet": proj["projet"]}
             for jour in jours_sem:
                 mask = (df_heures['projet_id'] == proj['id']) & (df_heures['date_jour'] == jour)
@@ -978,7 +999,7 @@ def show_validation_feuille():
         )
 
         # Bouton Enregistrer
-        col_save, _,_ = st.columns([1.5,2,13])
+        col_save, col_export,_ = st.columns([1.5,2,16])
         with col_save:
             if st.button("Enregistrer"):
                 df_modif = pd.DataFrame(grid_response['data'])
@@ -1023,3 +1044,104 @@ def show_validation_feuille():
                         st.success("Heures enregistrées avec succès.")
                     except Exception as e:
                         st.error(f"Erreur lors de l'enregistrement : {e}")
+
+        with col_export:
+
+            # Filtrer projets selon sélection
+            if selected_projects == 'all':
+                projets_a_exporter = df_projets_user.copy()
+            else:
+                projets_a_exporter = df_projets_user[df_projets_user['id'].isin([selected_projects])]
+
+            # Récupérer toutes les heures du mois pour l'utilisateur
+            try:
+                conn = get_connection()
+                query_heures_mois = """
+                    SELECT projet_id, date_jour, heures
+                    FROM heures_saisie
+                    WHERE user_id = %s
+                    AND date_jour BETWEEN %s AND %s
+                """
+                df_heures_mois = pd.read_sql_query(query_heures_mois, conn, params=(selected_user_id, date_start, date_end))
+                conn.close()
+
+                # Normaliser les dates en format YYYY-MM-DD
+                if not df_heures_mois.empty:
+                    df_heures_mois['date_jour'] = pd.to_datetime(df_heures_mois['date_jour']).dt.strftime('%Y-%m-%d')
+
+            except Exception as e:
+                st.error(f"Erreur lors du chargement des heures du mois : {e}")
+                df_heures_mois = pd.DataFrame()
+
+            # Récupérer toutes les absences approuvées sur le mois
+            try:
+                conn = get_connection()
+                query_abs_user = """
+                    SELECT date_debut, date_fin
+                    FROM absences
+                    WHERE user_id = %s AND statut = 'Approuvée'
+                    AND date_fin >= %s AND date_debut <= %s
+                """
+                df_abs_user_full = pd.read_sql_query(query_abs_user, conn, params=(selected_user_id, date_start, date_end))
+                conn.close()
+
+                if not df_abs_user_full.empty:
+                    expanded_rows = []
+                    for _, row in df_abs_user_full.iterrows():
+                        periode = pd.date_range(start=row['date_debut'], end=row['date_fin'])
+                        for d in periode:
+                            expanded_rows.append(d.strftime('%Y-%m-%d'))
+                    jours_absence = set(expanded_rows)
+                else:
+                    jours_absence = set()
+            except Exception as e:
+                st.error(f"Erreur lors du chargement des absences du mois : {e}")
+                jours_absence = set()
+
+            # Création de la liste de tous les jours du mois
+            jours_mois = pd.date_range(date_start, date_end).strftime('%Y-%m-%d').tolist()
+            jours_semaine_fr = {'Mon': 'Lun','Tue': 'Mar','Wed': 'Mer','Thu': 'Jeu','Fri': 'Ven','Sat': 'Sam','Sun': 'Dim'}
+
+            # Préparer le dataframe export
+            data_export = []
+            for _, proj in projets_a_exporter.iterrows():
+                row = {"Projet": proj["projet"]}
+                for jour in jours_mois:
+                    dt = pd.to_datetime(jour)
+                    abbr_en = dt.strftime('%a')
+                    jour_fr = jours_semaine_fr.get(abbr_en, abbr_en)
+                    col_name = f"{jour_fr}-{dt.day}"  # ex: Lun-17
+
+                    # Weekend
+                    if dt.weekday() >= 5:
+                        row[col_name] = "Weekend"
+                    # Férié
+                    elif jour in jours_feries_set:
+                        row[col_name] = "Férié"
+                    # Absence
+                    elif jour in jours_absence:
+                        row[col_name] = "Absence"
+                    # Heures saisies
+                    else:
+                        mask = (df_heures_mois['projet_id'] == proj['id']) & (df_heures_mois['date_jour'] == jour)
+                        if not df_heures_mois[mask].empty:
+                            row[col_name] = float(df_heures_mois[mask]['heures'].values[0])
+                        else:
+                            row[col_name] = 0.0
+                data_export.append(row)
+
+            df_export = pd.DataFrame(data_export)
+
+            # Créer le fichier Excel
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_export.to_excel(writer, index=False, sheet_name='Heures Mois')
+            processed_data = output.getvalue()
+
+            user_name = user_options[selected_user_id].replace(" ", "_")
+            st.download_button(
+                label="Exporter en Excel",
+                data=processed_data,
+                file_name=f"Heures_{user_name}_{selected_month_name}_{selected_year}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )

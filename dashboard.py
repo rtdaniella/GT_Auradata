@@ -476,6 +476,29 @@ def show_dashboard():
         
         # Répartition des statuts
         with col_graphe2:
+            mois_map = {
+            "Janvier": 1, "Février": 2, "Mars": 3, "Avril": 4,
+            "Mai": 5, "Juin": 6, "Juillet": 7, "Août": 8,
+            "Septembre": 9, "Octobre": 10, "Novembre": 11, "Décembre": 12
+            }
+
+            selected_month = mois_map[selected_month_name]
+            query = """
+            SELECT type_absence, SUM((date_fin - date_debut + 1)) AS nb_jours
+            FROM absences
+            WHERE statut = 'Approuvée'
+            AND (
+                    (EXTRACT(MONTH FROM date_debut) = %s AND EXTRACT(YEAR FROM date_debut) = %s)
+                    OR (EXTRACT(MONTH FROM date_fin) = %s AND EXTRACT(YEAR FROM date_fin) = %s)
+                )
+            GROUP BY type_absence;
+            """
+
+            cursor.execute(query, (selected_month, selected_year, selected_month, selected_year))
+            rows = cursor.fetchall()
+
+            df_grouped = pd.DataFrame(rows, columns=["Type d'absence", "Jours"])
+            
             st.markdown(f"""
                 <h4 style='
                     background-color: #d6dcf5;
@@ -488,13 +511,10 @@ def show_dashboard():
                 '>
                 Répartition des statuts - {selected_month_name} {selected_year}</h4>
             """, unsafe_allow_html=True)
-
-            df_grouped = df_combined.groupby("Statut", as_index=False)["Jours"].sum()
-
-            if df_grouped["Jours"].sum() > 0:
+            if not df_grouped.empty and df_grouped["Jours"].sum() > 0:
                 fig2 = px.pie(
                     df_grouped,
-                    names="Statut",
+                    names="Type d'absence",
                     values="Jours",
                     color_discrete_sequence=px.colors.qualitative.Set3,
                 )
@@ -511,7 +531,7 @@ def show_dashboard():
                 )
                 st.plotly_chart(fig2, use_container_width=True)
             else:
-                st.info("Aucune donnée disponible pour ces filtres.")
+                st.info("Aucune absence approuvée pour ces filtres.")
 
 
         # Evolution par mois par type de jour 
