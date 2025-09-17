@@ -1,6 +1,6 @@
 [server]
 runOnSave = true
-fileWatcherType = "auto"
+fileWatcherType = "none"
 enableXsrfProtection = true
 
 [theme]
