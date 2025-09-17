@@ -270,7 +270,6 @@ def show_demande_absence():
     """, unsafe_allow_html=True)
 
     current_year = date.today().year
-    current_month = date.today().month 
 
     annee_options = list(range(current_year, 2022, -1))
     mois_options = list(range(1, 13))
@@ -290,7 +289,6 @@ def show_demande_absence():
         mois_filtre = st.selectbox(
         "📅 Mois",
         options=mois_options,
-        index=current_month - 1,  # index de 0 à 11
         format_func=lambda x: pd.to_datetime(x, format='%m').strftime('%B')
     )
     with col3:
