@@ -758,7 +758,7 @@ def show_demande_absence():
                 9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"
             }
 
-            nom_mois = mois_noms[mois_filtre]
+            nom_mois = date.today().strftime("%B")
             st.markdown(f"""
                 <h4 style='
                     background-color: #d6dcf5;
@@ -790,7 +790,7 @@ def show_demande_absence():
                 df_gantt["mois"] = df_gantt["date_debut"].dt.month
 
                 annee_sel = st.session_state.get("annee_filtre", date.today().year)
-                mois_sel = st.session_state.get("mois_filtre", date.today().month)
+                mois_sel = date.today().month 
 
                 df_filtre = df_gantt[df_gantt["annee"] == annee_sel]
                 if mois_sel:
