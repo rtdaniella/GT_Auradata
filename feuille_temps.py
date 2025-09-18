@@ -998,21 +998,12 @@ def show_feuille_temps():
                 ORDER BY p.nom
             """
             df_projets_user = pd.read_sql_query(query_projets_user, conn, params=(user_id,))
+            #st.write(df_projets_user.columns)
             conn.close()
-            
-            # Conversion en datetime → puis en date (si valeur vide = NaT)
-            df_projets_user['date_fin'] = pd.to_datetime(
-                df_projets_user['date_fin'], errors='coerce'
-            ).dt.date
 
-            # Aujourd’hui en date (pas datetime)
-            today = pd.to_datetime(datetime.today().date())
-
-            # Garder uniquement : (pas de date de fin) OU (date >= aujourd’hui)
-            mask = df_projets_user['date_fin'].isna() | (df_projets_user['date_fin'] >= today)
-            df_projets_user = df_projets_user[mask]
-
-            # On supprime la colonne si tu n’en as plus besoin
+            df_projets_user['date_fin'] = pd.to_datetime(df_projets_user['date_fin'], errors='coerce')
+            today = pd.Timestamp.today().normalize()
+            df_projets_user = df_projets_user[df_projets_user['date_fin'].isna() | (df_projets_user['date_fin'] >= today)]
             df_projets_user = df_projets_user.drop(columns=['date_fin'])
 
         except Exception as e:
