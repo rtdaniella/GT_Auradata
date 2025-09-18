@@ -912,6 +912,10 @@ def show_demande_absence():
                 elif type_absence == "RTT" and jours_restants_rtt <= 0:
                     st.warning("⚠️ Vous n'avez plus de RTT disponibles.")
                     disable_submit = True
+                
+                # Vérification des weekends
+                if date_debut.weekday() >= 5 or date_fin.weekday() >= 5:
+                    disable_submit = True
 
                 submitted = st.form_submit_button("Soumettre la demande", disabled=disable_submit)
 
@@ -927,6 +931,8 @@ def show_demande_absence():
                         st.warning(f"Vous ne disposez pas d'assez de jours de congés. Solde restant : {jours_restants_conges:.0f} jour(s).")
                     elif type_absence == "RTT" and nb_jours_demande > jours_restants_rtt:
                         st.warning(f"Vous ne disposez pas d'assez de jours de RTT. Solde restant : {jours_restants_rtt:.0f} jour(s).")
+                    elif date_debut.weekday() >= 5 or date_fin.weekday() >= 5:
+                        st.warning("⚠️ La date de début et de fin ne peut pas tomber un week-end.")
                     else:
                         # Gestion du justificatif
                         nom_justificatif = None

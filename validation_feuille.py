@@ -1045,7 +1045,7 @@ def show_validation_feuille():
 
                         conn.commit()
                         conn.close()
-                        st.success("Heures enregistrées avec succès.")
+                        st.toast("Heures enregistrées avec succès.")
                     except Exception as e:
                         st.error(f"Erreur lors de l'enregistrement : {e}")
 
