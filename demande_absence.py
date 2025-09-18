@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import os
 import holidays
 from db import get_connection
+from datetime import date, datetime, timedelta
 
 st.set_page_config(page_title="Demande d'absences", layout="wide")
 
@@ -269,9 +270,6 @@ def show_demande_absence():
         </style>
     """, unsafe_allow_html=True)
 
-    current_year = date.today().year
-
-    annee_options = list(range(current_year, 2022, -1))
     mois_options = list(range(1, 13))
 
     df_type_abs = pd.read_sql_query(
@@ -284,7 +282,11 @@ def show_demande_absence():
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        annee_filtre = st.selectbox("📅 Année", options=annee_options, index=0)
+        annee_filtre = st.selectbox(
+            "📆 Année",
+            list(range(2020, 2031)),
+            index=list(range(2020, 2031)).index(datetime.today().year)
+        )
     with col2:
         mois_filtre = st.selectbox(
         "📅 Mois",

@@ -213,8 +213,11 @@ def show_feuille_temps():
                 mois_selectionne = st.selectbox("📅 Mois", mois_noms, index=datetime.today().month - 1)
                 mois = mois_noms.index(mois_selectionne) + 1
             with col_annee:
-                annee = st.selectbox("📆 Année", list(range(2024, datetime.today().year + 2)), index=1)
-
+                annee = st.selectbox(
+                "📆 Année",
+                list(range(2020, 2031)),  # liste de 2020 à 2030 inclus
+                index=list(range(2020, 2031)).index(datetime.today().year)  # index de l'année actuelle
+            )
             mois_str = f"{mois:02d}"
             annee_str = str(annee)
 
@@ -708,12 +711,12 @@ def show_feuille_temps():
             historique_df["Mois"] = historique_df["Mois"].map(mois_fr)
 
             annee_actuelle = datetime.today().year
-            annees_completes = list(range(2023, annee_actuelle + 1))
+            annees_completes = list(range(2020,2031))
             statuts = sorted(historique_df["Statut"].unique())
 
             col1, col2 = st.columns(2)
             with col1:
-                annee_filtre = st.selectbox("📅 Année", ["Toutes"] + [str(a) for a in reversed(annees_completes)])
+                annee_filtre = st.selectbox("📅 Année", ["Toutes"] + [str(a) for a in annees_completes])
             with col2:
                 statut_filtre = st.selectbox("📌 Statut", ["Tous"] + statuts)
 
@@ -896,9 +899,12 @@ def show_feuille_temps():
         # Sélection année et mois
         col_year, col_month = st.columns(2)
         with col_year:
-            current_year = datetime.now().year
-            years = list(range(current_year - 2, current_year + 3))
-            selected_year = st.selectbox("📅 Année", years, index=2, key="year_select")
+            selected_year = st.selectbox(
+            "📆 Année",
+            list(range(2020, 2031)),
+            index=list(range(2020, 2031)).index(datetime.today().year),
+            key="select_year"
+            )
         with col_month:
             selected_month_name = st.selectbox("🗓️ Mois", list(calendar.month_name)[1:], index=datetime.now().month - 1, key="month_select")
             month_num = list(calendar.month_name).index(selected_month_name)
@@ -1000,7 +1006,7 @@ def show_feuille_temps():
             ).dt.date
 
             # Aujourd’hui en date (pas datetime)
-            today = datetime.today().date()
+            today = pd.to_datetime(datetime.today().date())
 
             # Garder uniquement : (pas de date de fin) OU (date >= aujourd’hui)
             mask = df_projets_user['date_fin'].isna() | (df_projets_user['date_fin'] >= today)

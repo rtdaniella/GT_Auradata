@@ -314,9 +314,8 @@ def show_validation_absence():
         utilisateurs_df = pd.read_sql_query("SELECT DISTINCT name FROM users ORDER BY name", conn)
         utilisateurs_disponibles = utilisateurs_df["name"].dropna().tolist()
 
-        annee_courante = datetime.now().year
-        annees_disponibles = list(range(2023, annee_courante + 1))
-        annees_disponibles = list(map(str, sorted(annees_disponibles, reverse=True)))
+        annees_disponibles = list(range(2020, 2031))
+        annees_disponibles = list(map(str, sorted(annees_disponibles)))
 
         col1, col2, col3 = st.columns([2,3,3])
 
@@ -517,8 +516,8 @@ def show_validation_absence():
             9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"
         }
 
-        annees_completes = list(range(2023, annee_actuelle + 1))
-        annee_options = ["Toutes"] + [str(a) for a in reversed(annees_completes)]
+        annees_completes = list(range(2020, 2031))
+        annee_options = ["Toutes"] + [str(a) for a in annees_completes]
         mois_nommes = [(num, nom) for num, nom in mois_fr.items()]
         mois_options = ["Tous"] + [nom for _, nom in mois_nommes]
 

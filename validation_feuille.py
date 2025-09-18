@@ -260,12 +260,12 @@ def show_validation_feuille():
             }
 
             utilisateurs_f = sorted(set([f[1] for f in feuilles]))
-            annees_completes = list(range(2023, annee_actuelle + 1))
+            annees_completes = list(range(2020, 2031))
             mois_tous_noms = [mois_fr[m] for m in range(1, 13)]
 
             st.markdown("### 🔍 Filtres")
             utilisateur_filtre = st.selectbox("🙍 Utilisateur", ["Tous"] + utilisateurs_f, key="feuille_utilisateur")
-            annee_filtre = st.selectbox("📅 Année", ["Toutes"] + [str(a) for a in reversed(annees_completes)], key="feuille_annee")
+            annee_filtre = st.selectbox("📅 Année", ["Toutes"] + [str(a) for a in annees_completes], key="feuille_annee")
             mois_filtre_nom = st.selectbox("📆 Mois", ["Tous"] + mois_tous_noms, key="feuille_mois")
 
             mois_filtre_num = None
@@ -611,10 +611,7 @@ def show_validation_feuille():
         }
         historique_df["Mois"] = historique_df["Mois"].map(mois_fr)
 
-        annees_completes = list(range(2023, date.today().year + 1))
-
         utilisateurs = ["Tous"] + sorted(historique_df["Utilisateur"].dropna().unique().tolist())
-        annees = ["Toutes"] + [str(a) for a in reversed(annees_completes)]
         mois_options = ["Tous"] + list(mois_fr.values())
         statuts = ["Tous"] + sorted(historique_df["Statut"].dropna().unique().tolist())
 
@@ -622,7 +619,12 @@ def show_validation_feuille():
         with col1:
             utilisateur_filtre = st.selectbox("🙍 Utilisateur", utilisateurs)
         with col2:
-            annee_filtre = st.selectbox("📅 Année", annees)
+            annee_filtre = st.selectbox(
+            "📆 Année",
+            list(range(2020, 2031)),
+            index=list(range(2020, 2031)).index(datetime.today().year),
+            key="year_select"
+            )
         with col3:
             mois_filtre = st.selectbox("📆 Mois", mois_options)
         with col4:
@@ -744,9 +746,11 @@ def show_validation_feuille():
 
         # Filtre année et mois
         with col_year:
-            current_year = datetime.now().year
-            years = list(range(current_year - 2, current_year + 3))
-            selected_year = st.selectbox("📅 Année", years, index=2)
+            selected_year = st.selectbox(
+                "📆 Année",
+                list(range(2020, 2031)),
+                index=list(range(2020, 2031)).index(datetime.today().year)
+            )
 
         with col_month:
             selected_month_name = st.selectbox("🗓️ Mois", list(calendar.month_name)[1:], index=datetime.now().month - 1)

@@ -180,12 +180,16 @@ def show_dashboard():
 
     role_options = ["Tous", "consultant", "rh", "admin"]
 
-    default_year_index = years_list.index(str(current_year))
+
     default_month_index = current_month - 1
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        selected_year = st.selectbox("📅 Année", options=years_list, index=default_year_index)
+        selected_year = st.selectbox(
+            "📆 Année",
+            list(range(2020, 2031)),
+            index=list(range(2020, 2031)).index(datetime.today().year)
+        )
     with col2:
         selected_month_name = st.selectbox("🗓️ Mois", options=mois_fr, index=default_month_index)
     with col3:
