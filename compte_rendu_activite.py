@@ -197,7 +197,7 @@ def show_compte_rendu_activite():
         """, (user_dict[selected_user],))
         projets = cursor.fetchall()
         projet_dict = {nom: pid for pid, nom in projets}
-        selected_projet = st.selectbox("💼 Client", list(projet_dict.keys()) if projets else [])
+        selected_projet = st.selectbox("💼 Projet", list(projet_dict.keys()) if projets else [])
 
     with col3:
         mois_fr = {
