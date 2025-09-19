@@ -197,7 +197,6 @@ def show_dashboard():
     with col4:
         selected_role = st.selectbox("🎭 Rôle", options=role_options, index=0)
 
-    # Jours ouvrés
     def business_days_in_month(y, m, country="FR"):
         jours_feries = holidays.country_holidays(country, years=y)
         last_day = calendar.monthrange(y, m)[1]
@@ -251,8 +250,6 @@ def show_dashboard():
             df_grouped = pd.DataFrame(columns=["Utilisateur", "Heures"])
         
         #------------------------------- Calcul KPI ---------------------------
-
-        # --- Feuille temps : travail normal ---
         query_ft = """
             SELECT u.id as user_id, u.name as Utilisateur,
                 'Travail' as Statut,
@@ -279,8 +276,6 @@ def show_dashboard():
         ft_rows = cursor.fetchall()
         df_ft = pd.DataFrame(ft_rows, columns=["user_id", "Utilisateur", "Statut", "Jours"])
 
-
-        # --- Absences et télétravail ---
         query_abs = """
             SELECT u.id as user_id, u.name as Utilisateur,
                 a.type_absence as Statut,
@@ -304,7 +299,6 @@ def show_dashboard():
         cursor.execute(query_abs, tuple(params_abs))
         abs_rows = cursor.fetchall()
 
-
         abs_rows_expanded = []
         for user_id, user_name, statut, date_debut, date_fin in abs_rows:
             current = date_debut
@@ -318,7 +312,6 @@ def show_dashboard():
         selected_year = int(selected_year)
         previous_year = selected_year - 1
 
-        # --- Feuille temps année précédente ---
         query_ft_prev = """
             SELECT u.id as user_id, u.name as Utilisateur,
                 'Travail' as Statut,
@@ -343,8 +336,6 @@ def show_dashboard():
         ft_rows_prev = cursor.fetchall()
         df_ft_prev = pd.DataFrame(ft_rows_prev, columns=["user_id", "Utilisateur", "Statut", "Jours"])
 
-
-        # --- Absences et télétravail année précédente ---
         query_abs_prev = """
             SELECT u.id as user_id, u.name as Utilisateur,
                 a.type_absence as Statut,
@@ -368,7 +359,6 @@ def show_dashboard():
         cursor.execute(query_abs_prev, tuple(params_abs_prev))
         abs_rows_prev = cursor.fetchall()
 
-
         abs_rows_expanded_prev = []
         for user_id, user_name, statut, date_debut, date_fin in abs_rows_prev:
             current = date_debut
@@ -378,8 +368,6 @@ def show_dashboard():
                 current += timedelta(days=1)
 
         df_abs_prev = pd.DataFrame(abs_rows_expanded_prev, columns=["user_id", "Utilisateur", "Statut", "Jours"])
-
-        #------------------ Calcul KPI année précedente ------------------
 
         jours_travailles_prev = df_ft_prev["Jours"].sum() if not df_ft_prev.empty else 0
         teletravail_days_prev = df_abs_prev.loc[df_abs_prev["Statut"] == "Télétravail", "Jours"].sum() if not df_abs_prev.empty else 0
@@ -441,7 +429,6 @@ def show_dashboard():
 
         col_graphe1, col_graphe2 = st.columns(2)
 
-        # Heures travaillées
         with col_graphe1:
             st.markdown(f"""
                 <h4 style='
@@ -478,7 +465,6 @@ def show_dashboard():
             else:
                 st.info("Aucune donnée disponible pour ces filtres.")
         
-        # Répartition des statuts
         with col_graphe2:
             mois_map = {
             "Janvier": 1, "Février": 2, "Mars": 3, "Avril": 4,
@@ -537,8 +523,6 @@ def show_dashboard():
             else:
                 st.info("Aucune absence approuvée pour ces filtres.")
 
-
-        # Evolution par mois par type de jour 
         st.markdown(f"""
             <h4 style='
                 background-color: #d6dcf5;
@@ -554,7 +538,6 @@ def show_dashboard():
 
         statut_set = set()
         for i, mois_name in enumerate(mois_fr, start=1):
-            # Feuille de temps
             query_ft = """
                 SELECT DISTINCT ft.statut_jour as Statut
                 FROM feuille_temps ft
@@ -562,7 +545,7 @@ def show_dashboard():
                 WHERE EXTRACT(YEAR FROM ft.date) = %s
                 AND EXTRACT(MONTH FROM ft.date) = %s
             """
-            params = [selected_year, i]  # pas besoin de f"{i:02d}"
+            params = [selected_year, i]
 
             if selected_employee != "Tous":
                 query_ft += " AND u.name = %s"
@@ -577,8 +560,6 @@ def show_dashboard():
             for r in rows:
                 statut_set.add(r[0].capitalize())
 
-
-            # Absences
             query_abs = """
                 SELECT DISTINCT a.type_absence as Statut
                 FROM absences a
@@ -601,14 +582,12 @@ def show_dashboard():
             for r in rows_abs:
                 statut_set.add(r[0].capitalize())
 
-
         statut_options = ["Tous"] + sorted(list(statut_set))
         selected_statut = st.selectbox("Statut", options=statut_options, index=0)
 
         evolution_data = []
 
         for i, mois_name in enumerate(mois_fr, start=1):
-            # Feuille temps
             query_month = """
                 SELECT u.id as user_id, u.name as Utilisateur,
                     ft.statut_jour as Statut,
@@ -633,7 +612,6 @@ def show_dashboard():
             rows_month = cursor.fetchall()
             df_month_ft = pd.DataFrame(rows_month, columns=["user_id", "Utilisateur", "Statut", "Jours"])
 
-            # Absences
             query_abs_month = """
                 SELECT u.id as user_id, u.name as Utilisateur,
                     a.type_absence as Statut,
@@ -689,7 +667,6 @@ def show_dashboard():
                         "Jours": statut_row.Jours
                     })
 
-
         df_evolution = pd.DataFrame(evolution_data, columns=["Mois", "Statut", "Jours"])
 
         df_final = []
@@ -725,7 +702,6 @@ def show_dashboard():
         month_number = mois_fr.index(selected_month_name) + 1
         previous_year = str(int(selected_year) - 1)
 
-        # Calcul total jours d'absences approuvées
         query = """
             SELECT SUM((a.date_fin - a.date_debut) + 1) as total_jours
             FROM absences a
@@ -748,7 +724,6 @@ def show_dashboard():
         cursor.execute(query, tuple(params))
         total_jours_absence = cursor.fetchone()[0] or 0
 
-
         params_prev = [previous_year, f"{month_number:02d}"]
 
         if selected_employee != "Tous":
@@ -765,7 +740,6 @@ def show_dashboard():
         else:
             variation = f"{((total_jours_absence - total_jours_prev) / total_jours_prev * 100):+.0f}%"
         
-        # Requête total absences approuvées
         query_total_absences = """
             SELECT COUNT(*) 
             FROM absences a
@@ -776,7 +750,6 @@ def show_dashboard():
             AND EXTRACT(MONTH FROM a.date_debut) = %s
         """
 
-        # Requête télétravail
         query_teletravail = query_total_absences + " AND a.type_absence = 'Télétravail'"
 
         params = [selected_year, month_number] 
@@ -829,8 +802,6 @@ def show_dashboard():
         jours_ouvres_courant = business_days_in_month(year_int, month_number)
         jours_ouvres_prev = business_days_in_month(year_int - 1, month_number)
 
-
-        # Calcul total jours d'absences (hors télétravail)
         query_abs_days = """
             SELECT COALESCE(SUM((a.date_fin - a.date_debut) + 1), 0)
             FROM absences a
@@ -853,7 +824,6 @@ def show_dashboard():
 
         cursor.execute(query_abs_days, tuple(params_abs))
         jours_absence_courant = cursor.fetchone()[0] or 0
-
 
         params_abs_prev = [previous_year, f"{month_number:02d}"]
         if selected_employee != "Tous":
@@ -882,7 +852,6 @@ def show_dashboard():
 
         cursor.execute(query_headcount, tuple(params_hc))
         effectif = cursor.fetchone()[0] or 0
-
 
         denom_courant = jours_ouvres_courant * effectif
         denom_prev = jours_ouvres_prev * effectif
@@ -988,7 +957,6 @@ def show_dashboard():
 
         tab_liste_absence, tab_graphique = st.tabs(["Absences de la semaine", "Analyse avancée"]) 
         
-        # Liste des absences par semaine
         with tab_liste_absence:
 
             st.markdown(f"""
@@ -1149,7 +1117,6 @@ def show_dashboard():
             st.markdown(html_table, unsafe_allow_html=True)
             st.caption(f"Page {page} / {total_pages}")
 
-        # Évolution mensuelle des jours d’absence 
         with tab_graphique:
             st.markdown(f"""
                 <h4 style='
@@ -1226,7 +1193,6 @@ def show_dashboard():
 
             col1, col2 = st.columns([4,2])
 
-            # Taux d'absentéisme par mois
             with col1:
                 st.markdown(f"""
                     <h4 style='
@@ -1311,7 +1277,6 @@ def show_dashboard():
                 )
                 st.plotly_chart(fig_taux, use_container_width=True)
 
-            # Employés avec 0 absences
             with col2:
                 st.markdown(f"""
                     <h4 style='
@@ -1389,8 +1354,6 @@ def show_dashboard():
 
     #--------------------- Dashboard : projets -----------------------
     with tab3:
-
-        # Récupération des projets
         df_projets = pd.read_sql_query("SELECT id, nom, heures_prevues FROM projets ORDER BY nom", conn)
 
         projet_options = df_projets["nom"].tolist()
@@ -1400,14 +1363,12 @@ def show_dashboard():
         if selected_projet != "Tous":
             projet_id = df_projets[df_projets["nom"] == selected_projet]["id"].iloc[0]
 
-        # Filtre employé
         if selected_employee != "Tous":
             employee_id = [uid for uid, name in employees if name == selected_employee][0]
 
         selected_month_index = mois_fr.index(selected_month_name)
         selected_month_num = selected_month_index + 1
 
-        #============================================================================================
         params_cumule = [int(selected_year), int(selected_month_num)]
 
         query_hours_cumule = """
@@ -1450,8 +1411,6 @@ def show_dashboard():
         pct_avancement = round(total_saisie_cumule / heures_prevues_total * 100, 1) if heures_prevues_total else 0
         ecart_pct = round((total_saisie_cumule - heures_prevues_total) / heures_prevues_total * 100, 1) if heures_prevues_total else 0
 
-        #============================================================================================
-        # KPI : heures du mois
         query_hours_month = """
             SELECT SUM(h.heures) AS total_saisie
             FROM heures_saisie h
@@ -1474,8 +1433,6 @@ def show_dashboard():
         total_saisie_month = 0 if total_saisie_month is None else total_saisie_month
         pct_occupation = round(total_saisie_month / 160 * 100, 1)
 
-        #============================================================================================
-        # Affichage des KPI
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown(f"""
@@ -1502,8 +1459,6 @@ def show_dashboard():
                 </div>
             """, unsafe_allow_html=True)
 
-        #============================================================================================
-        # Tableau de suivi des projets filtré par attribution
         params_projets = [selected_year, selected_month_num]
 
         employee_filter_sql = f"AND a.user_id = {employee_id}" if selected_employee != "Tous" else ""
@@ -1531,8 +1486,6 @@ def show_dashboard():
         """
 
         df_analyse = pd.read_sql_query(query_projets, conn, params=params_projets)
-
-        # Calcul taux consommation et statut
         df_analyse["taux_conso"] = df_analyse.apply(
             lambda row: round(row["heures_reelles"] / row["heures_prevues"] * 100, 1) if row["heures_prevues"] else 0,
             axis=1
@@ -1550,8 +1503,6 @@ def show_dashboard():
 
         df_analyse["statut"] = df_analyse["taux_conso"].apply(definir_statut)
 
-        #============================================================================================
-        # fonction pour le style des cellules
         def style_cell_projet(val, col_type, show_days=False):
             if val is None or val == "":
                 return f'<td style="padding:8px; text-align:center;">-</td>'
@@ -1593,8 +1544,6 @@ def show_dashboard():
                 style = "padding:8px; text-align:center;"
             return f'<td style="{style}">{cell_text}</td>'
 
-        #============================================================================================
-        # Construction du tableau HTML
         html_table = '''
         <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 14px;">
         '''
@@ -1616,14 +1565,10 @@ def show_dashboard():
 
         st.markdown(f"<h4 style='background-color:#d6dcf5;padding:10px 15px;border-radius:8px;color:#000060;font-weight:600;border-left:6px solid #9aa7e5;margin-bottom:20px;'>Suivi des projets</h4>", unsafe_allow_html=True)
         st.markdown(html_table, unsafe_allow_html=True)
-
-        #============================================================================================
-        # Graphe des contributions par projet filtré sur attribution
         st.markdown(f"<h4 style='background-color:#d6dcf5;padding:10px 15px;border-radius:8px;color:#000060;font-weight:600;border-left:6px solid #9aa7e5;margin-bottom:20px;'>Vision globale des contributions par projet</h4>", unsafe_allow_html=True)
         params = [int(selected_year)]
         project_filter_sql = f"AND h.projet_id = {projet_id}" if selected_projet != "Tous" else ""
         role_filter_sql = f"AND EXISTS (SELECT 1 FROM roles r WHERE r.user_id = h.user_id AND r.role = '{selected_role}')" if selected_role != "Tous" else ""
-
 
         query_evolution = f"""
             SELECT h.user_id, u.name AS employe,
@@ -1650,13 +1595,11 @@ def show_dashboard():
             df_evolution["mois"] = df_evolution["mois"].astype(int)
             df_pivot = df_evolution.pivot(index="mois", columns="employe", values="total_heures").fillna(0)
 
-            # s'assurer que tous les mois sont présents
             for m in range(1, 13):
                 if m not in df_pivot.index:
                     df_pivot.loc[m] = [0] * df_pivot.shape[1]
             df_pivot = df_pivot.sort_index()
 
-            # supprimer les colonnes des employés qui n'ont jamais travaillé sur ce projet
             if selected_projet != "Tous":
                 df_pivot = df_pivot.loc[:, (df_pivot.sum(axis=0) > 0)]
 
@@ -1689,8 +1632,6 @@ def show_dashboard():
         else:
             st.info("Aucune donnée disponible pour le filtre sélectionné.")
 
-
-    # Onglet prévisions à impléménter
     with tab4:
         def load_lottieurl(url: str):
             r = requests.get(url)

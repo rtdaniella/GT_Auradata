@@ -24,20 +24,17 @@ def set_cell_shading(cell, fill):
 def generate_word(selected_user, selected_projet, selected_month, selected_year, df, total_jours, mois_fr, logo_path=None):
     doc = Document()
 
-    # --- Titre avec logo ---
     title_table = doc.add_table(rows=1, cols=2)
     title_table.autofit = False
 
-    # Logo (colonne gauche)
     if logo_path:
         cell_logo = title_table.cell(0, 0)
         paragraph_logo = cell_logo.paragraphs[0]
         run_logo = paragraph_logo.add_run()
-        run_logo.add_picture(logo_path, width=Inches(1))  # ajuste la taille du logo
+        run_logo.add_picture(logo_path, width=Inches(1))
     else:
-        title_table.cell(0, 0).text = ""  # vide si pas de logo
+        title_table.cell(0, 0).text = ""
 
-    # Titre (colonne droite)
     cell_title = title_table.cell(0, 1)
     paragraph_title = cell_title.paragraphs[0]
     run_title = paragraph_title.add_run("Compte rendu d'activité")
@@ -45,9 +42,8 @@ def generate_word(selected_user, selected_projet, selected_month, selected_year,
     run_title.font.bold = True
     paragraph_title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
-    doc.add_paragraph("")  # espace sous le titre
+    doc.add_paragraph("")
 
-    # --- Tableau d'en-tête (Consultant / Client / Mois / Projet) ---
     header_table = doc.add_table(rows=2, cols=2)
     header_table.style = "Table Grid"
     header_table.autofit = True
@@ -57,9 +53,8 @@ def generate_word(selected_user, selected_projet, selected_month, selected_year,
     header_table.cell(1, 0).text = f"Mois : {mois_fr[selected_month]} {selected_year}"
     header_table.cell(1, 1).text = f"Projet : {selected_projet}"
 
-    doc.add_paragraph("")  # espace avant le tableau principal
+    doc.add_paragraph("") 
 
-    # --- Tableau principal (Jour / Date / Présence / Commentaire) ---
     table = doc.add_table(rows=1, cols=4)
     table.style = "Table Grid"
     hdr_cells = table.rows[0].cells
@@ -70,9 +65,8 @@ def generate_word(selected_user, selected_projet, selected_month, selected_year,
         run.font.bold = True
         run.font.color.rgb = RGBColor(255, 255, 255)
         run.font.size = Pt(11)
-        set_cell_shading(hdr_cells[i], "080686")  # bleu foncé
+        set_cell_shading(hdr_cells[i], "080686") 
 
-    # Remplir les lignes du tableau
     for _, row in df.iterrows():
         jour = row["Jour"]
         date = row["Date"]
@@ -80,7 +74,6 @@ def generate_word(selected_user, selected_projet, selected_month, selected_year,
 
         row_cells = table.add_row().cells
 
-        # Samedi / Dimanche -> seules les dates affichées
         if jour in ["Samedi", "Dimanche"]:
             row_cells[0].text = ""
             row_cells[1].text = date
@@ -90,9 +83,8 @@ def generate_word(selected_user, selected_projet, selected_month, selected_year,
             row_cells[0].text = jour
             row_cells[1].text = date
             row_cells[2].text = str(presence)
-            row_cells[3].text = ""  # commentaire vide
+            row_cells[3].text = "" 
 
-    # Ligne Total
     row_cells = table.add_row().cells
     row_cells[0].text = "Total"
     row_cells[1].text = ""
@@ -102,12 +94,10 @@ def generate_word(selected_user, selected_projet, selected_month, selected_year,
         run = row_cells[i].paragraphs[0].runs[0]
         run.font.bold = True
 
-    # Pied de page
-    doc.add_paragraph("\nLe                      à\n")
+    doc.add_paragraph("\nLe                              à\n")
     pied = doc.add_paragraph("Signature consultant                      Signature client")
     pied.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
-    # Sauvegarde en mémoire
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -119,7 +109,6 @@ def show_compte_rendu_activite():
         st.error("Accès réservé à l'administrateur.")
         st.stop()
 
-    # CSS (tu l’avais déjà défini)
     st.markdown("""
         <style>
             .stApp { margin-top: 0; padding: 0; background-color: #f2f2f2; }
@@ -188,7 +177,6 @@ def show_compte_rendu_activite():
         selected_user = st.selectbox("🧑‍💼 Consultant", list(user_dict.keys()))
 
     with col2:
-        # Charger uniquement les projets attribués à l’utilisateur
         cursor.execute("""
             SELECT p.id, p.nom
             FROM projets p
@@ -218,13 +206,10 @@ def show_compte_rendu_activite():
         current_year = datetime.now().year
         selected_year = st.selectbox("🗓️ Année", years, index=years.index(current_year))
 
-    # Génération du tableau
     if selected_user and selected_projet:
-        # Récupérer tous les jours du mois
         nb_days = calendar.monthrange(selected_year, selected_month)[1]
         days = [datetime(selected_year, selected_month, d) for d in range(1, nb_days + 1)]
 
-        # Charger les données depuis feuille_temps
         cursor.execute("""
             SELECT date, valeur 
             FROM feuille_temps
@@ -234,7 +219,6 @@ def show_compte_rendu_activite():
         """, (user_dict[selected_user], selected_year, selected_month))
         ft_data = {row[0].strftime("%Y-%m-%d"): row[1] for row in cursor.fetchall()}
 
-        # Construire le tableau
         rows = []
         jours_fr = {
             "Monday": "Lundi", "Tuesday": "Mardi", "Wednesday": "Mercredi",
@@ -262,13 +246,10 @@ def show_compte_rendu_activite():
             '>{titre_tableau}</h3>
         """, unsafe_allow_html=True)
 
-
-        # Transformer en HTML avec style déjà défini
         table_html = df.to_html(index=False, classes="styled-table", escape=False)
 
         st.markdown(table_html, unsafe_allow_html=True)
 
-        #Nombre total de jours
         st.markdown(f"""
             <h5 style='
                 color: #006633;
@@ -278,7 +259,6 @@ def show_compte_rendu_activite():
             '>Nombre total de jours : {total_jours}</h5>
         """, unsafe_allow_html=True)
 
-        #générer compte rendu
         st.download_button(
             label="Générer le compte rendu d'activité",
             data=generate_word(
