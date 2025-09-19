@@ -7,8 +7,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-
-
 #Fonction générer mot de passe temporaire
 def generate_temp_password(length=10):
     characters = string.ascii_letters + string.digits + "!@#$%&*"
@@ -34,8 +32,6 @@ def send_email_gmail(to_email, temp_password):
     Merci,
     L'équipe Admin
     """
-
-    # Création de l’email
     msg = MIMEMultipart()
     msg["From"] = sender_email
     msg["To"] = to_email
@@ -43,12 +39,10 @@ def send_email_gmail(to_email, temp_password):
     msg.attach(MIMEText(body, "plain"))
 
     try:
-        # Connexion au serveur SMTP de Gmail
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(sender_email, sender_password)
 
-        # Envoi de l’email
         server.sendmail(sender_email, to_email, msg.as_string())
         server.quit()
         print(f"Email envoyé à {to_email}")
@@ -526,7 +520,6 @@ def show_admin():
                 nom_projet = st.text_input("Nom du projet", value=default_nom)
                 outil_projet = st.text_input("Outil associé", value=default_outil)
                 
-                # Champ jours uniquement
                 jours_prevus = st.number_input(
                     "Jours prévus",
                     min_value=0,
@@ -534,7 +527,6 @@ def show_admin():
                     value=default_jours
                 )
 
-                # Conversion automatique en heures (pour la BDD)
                 heures_prevues = jours_prevus * 8
 
                 submit_label = "Ajouter le projet" if selected_projet is None else "Modifier"
@@ -632,7 +624,6 @@ def show_admin():
                     df_projets["outil"].str.contains(search_proj, case=False, na=False)
                 ]
 
-            # Colonnes séparées jours et heures
             df_projets["Jours prévus"] = (df_projets["heures_prevues"] / 8).astype(int)
             df_projets["Heures prévues"] = df_projets["heures_prevues"].astype(int)
 
@@ -672,8 +663,6 @@ def show_admin():
 
             st.markdown(f"<p style='text-align:right; font-style: italic;'>Page {st.session_state.page_projets} sur {total_pages_projets}</p>", unsafe_allow_html=True)
 
-
-        
     #-------------------------------------------------- Attribution projet --------------------------------------------------
 
     with tab3:
@@ -708,13 +697,11 @@ def show_admin():
             """, conn)
             conn.close()
 
-            # Conversion des dates
             df_attributions['date_debut'] = pd.to_datetime(df_attributions['date_debut']).dt.date
             df_attributions['date_fin'] = pd.to_datetime(df_attributions['date_fin']).dt.date
 
             df_attrib_display = df_attributions.copy()
 
-            # Recherche
             search_attrib = st.text_input("🔍 Rechercher une attribution")
             if search_attrib:
                 df_attrib_display = df_attrib_display[
@@ -790,11 +777,9 @@ def show_admin():
             attributions = cursor.fetchall()
             conn.close()
 
-            # Dictionnaires clé = id, valeur = nom
             user_dict = {id: name for id, name in utilisateurs}
             projet_dict = {id: nom for id, nom in projets}
 
-            # Options pour le selectbox
             attrib_options = {
                 f"{user_dict[user_id]} - {projet_dict[projet_id]}": attrib_id
                 for attrib_id, user_id, projet_id, _, _ in attributions
@@ -804,7 +789,6 @@ def show_admin():
             selected_attrib_label = st.selectbox("Sélectionnez une attribution", list(attrib_options.keys()))
             selected_attrib_id = attrib_options[selected_attrib_label]
 
-            # Préremplissage du formulaire
             if selected_attrib_id is not None:
                 selected_row = next((row for row in attributions if row[0] == selected_attrib_id), None)
                 default_user_id = selected_row[1]
@@ -823,10 +807,7 @@ def show_admin():
             else:
                 st.markdown("### ✏️ Modification ")
 
-            # Formulaire
-            # Formulaire
             with st.form("form_attribution"):
-                # ----- Utilisateur -----
                 user_keys = list(user_dict.keys())
                 if default_user_id not in user_keys:
                     default_user_id = user_keys[0] if user_keys else None
@@ -839,7 +820,6 @@ def show_admin():
                 )
                 selected_user_name = user_dict.get(selected_user_id, "Utilisateur inconnu")
 
-                # ----- Projet -----
                 projet_keys = list(projet_dict.keys())
                 if default_projet_id not in projet_keys:
                     default_projet_id = projet_keys[0] if projet_keys else None
@@ -852,11 +832,9 @@ def show_admin():
                 )
                 selected_projet_name = projet_dict.get(selected_projet_id, "Projet inconnu")
 
-                # ----- Dates -----
                 date_debut = st.date_input("Date de début", value=default_date_debut)
                 date_fin = st.date_input("Date de fin", value=default_date_fin)
 
-                # ----- Boutons -----
                 if selected_attrib_id is not None:
                     col_btn1, col_btn2 = st.columns([1, 5])
                     with col_btn1:
@@ -916,11 +894,6 @@ def show_admin():
                             conn.close()
                         st.session_state.confirm_delete_attrib = False
                         st.rerun()
-
-
-
-
-
     #--------------------------------- Définition CP & RTT ----------------------------------
 
     with tab4:
