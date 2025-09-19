@@ -113,7 +113,7 @@ def show_admin():
             position: fixed;
             top: 0;
             left: 200px;
-            background-color: #e6e6e6;
+            background-color: #ffffff;
             z-index: 999;
             width:100%;
             padding: 10px 20px;

@@ -6,14 +6,6 @@ import streamlit as st
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-# def get_connection():
-#     conn = sqlite3.connect(
-#         "GTAuradata.db",
-#         detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-#         check_same_thread=False
-#     )
-#     return conn
-
 def get_connection():
     conn = psycopg2.connect(
         host=st.secrets["postgres"]["host"],
@@ -47,29 +39,6 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     """)
-
-    # Admin par défaut
-    # admin_email = "daniella.rakotondratsimba@auradata.fr"
-    # admin_name = "Daniella Rakotondratsimba"
-    # admin_password = hash_password("admin123")
-
-    # cursor.execute("SELECT id FROM users WHERE email = ?", (admin_email,))
-    # admin_exists = cursor.fetchone()
-
-    # if not admin_exists:
-    #     # Insertion de l'utilisateur admin
-    #     cursor.execute("""
-    #         INSERT INTO users (email, name, password_hashed, is_active, must_change_password, activated_once)
-    #         VALUES (?, ?, ?, 1, 0, 1)
-    #     """, (admin_email, admin_name, admin_password))
-    #     admin_id = cursor.lastrowid
-    # else:
-    #     admin_id = admin_exists[0]
-
-    # # Vérification et insertion du rôle admin
-    # cursor.execute("SELECT role FROM roles WHERE user_id = ?", (admin_id,))
-    # if not cursor.fetchone():
-    #     cursor.execute("INSERT INTO roles (user_id, role) VALUES (?, 'admin')", (admin_id,))
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS feuille_temps (
