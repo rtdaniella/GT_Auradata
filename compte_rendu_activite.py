@@ -103,7 +103,7 @@ def generate_word(selected_user, selected_projet, selected_month, selected_year,
         run.font.bold = True
 
     # Pied de page
-    doc.add_paragraph("\nLe à\n")
+    doc.add_paragraph("\nLe                      à\n")
     pied = doc.add_paragraph("Signature consultant                      Signature client")
     pied.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
